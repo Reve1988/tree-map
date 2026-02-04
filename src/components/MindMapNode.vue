@@ -32,8 +32,8 @@ onMounted(() => {
                 let height = entry.contentRect.height;
                 
                 if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
-                    width = entry.borderBoxSize[0].inlineSize;
-                    height = entry.borderBoxSize[0].blockSize;
+                    width = entry.borderBoxSize[0]?.inlineSize ?? width;
+                    height = entry.borderBoxSize[0]?.blockSize ?? height;
                 }
                 
                 store.updateNodeSize(props.node.id, width, height);

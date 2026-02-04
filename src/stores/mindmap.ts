@@ -172,7 +172,8 @@ export const useMindMapStore = defineStore('mindmap', () => {
         } else if (direction === 'right') {
             if (node.children.length > 0 && !node.isCollapsed) {
                 const mid = Math.floor(node.children.length / 2);
-                selectNode(node.children[mid].id);
+                const child = node.children[mid];
+                if (child) selectNode(child.id);
             }
         } else if (direction === 'up' || direction === 'down') {
             if (node.parentId) {
@@ -181,9 +182,11 @@ export const useMindMapStore = defineStore('mindmap', () => {
                     const index = parent.children.findIndex(c => c.id === id);
                     if (index !== -1) {
                         if (direction === 'up' && index > 0) {
-                            selectNode(parent.children[index - 1].id);
+                            const sibling = parent.children[index - 1];
+                            if (sibling) selectNode(sibling.id);
                         } else if (direction === 'down' && index < parent.children.length - 1) {
-                            selectNode(parent.children[index + 1].id);
+                            const sibling = parent.children[index + 1];
+                            if (sibling) selectNode(sibling.id);
                         }
                     }
                 }
