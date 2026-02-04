@@ -119,10 +119,7 @@ function onKeyDown(e: KeyboardEvent) {
       {{ node.text }}
     </div>
     
-    <div class="node-actions" v-if="isSelected && !isEditing">
-      <button @click.stop="addChild" title="Add Child">+</button>
-      <button @click.stop="removeNode" title="Delete" v-if="node.id !== 'root'">x</button>
-    </div>
+
 
     <button 
       v-if="node.children.length > 0" 
@@ -170,13 +167,7 @@ function onKeyDown(e: KeyboardEvent) {
     border-width: 2px;
 }
 
-.node-actions {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  /* Always show actions if selected for mobile friendliness, or keep hover? 
-     Let's rely on selection now since we have it */
-}
+
 
 button {
   padding: 2px 6px;
@@ -186,7 +177,7 @@ button {
 
 .toggle-btn {
   position: absolute;
-  right: -10px; /* Adjust position based on design */
+  right: -30px; /* Adjust position based on design */
   top: 50%;
   transform: translateY(-50%);
   border-radius: 50%;
