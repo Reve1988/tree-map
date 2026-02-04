@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, nextTick, watch } from 'vue';
 import type { MindMapNode } from '../types/mindmap';
 import { useMindMapStore } from '../stores/mindmap';
 
@@ -8,12 +8,49 @@ const props = defineProps<{
 }>();
 
 const store = useMindMapStore();
+const contentRef = ref<HTMLElement | null>(null);
+const nodeRef = ref<HTMLElement | null>(null);
+const isEditing = ref(false);
+
+const isSelected = computed(() => store.selectedNodeId === props.node.id);
 
 const style = computed(() => ({
   left: `${props.node.x}px`,
   top: `${props.node.y}px`,
   position: 'absolute' as const,
 }));
+
+// Watch selection to focus the node wrapper for keyboard events
+watch(isSelected, (val) => {
+  if (val && !isEditing.value) {
+    nextTick(() => {
+      nodeRef.value?.focus();
+    });
+  }
+}, { immediate: true });
+
+function selectNode(e: Event) {
+   // Prevent bubbling so container doesn't deselect (if we implement that)
+   // But we also want to allow things? 
+   // Actually, stops propagation might be good.
+   e.stopPropagation(); 
+   store.selectNode(props.node.id);
+}
+
+function startEditing() {
+  isEditing.value = true;
+  nextTick(() => {
+    contentRef.value?.focus();
+    // Select all text
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (contentRef.value && sel) {
+        range.selectNodeContents(contentRef.value);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+  });
+}
 
 function addChild() {
   store.addChild(props.node.id);
@@ -24,42 +61,74 @@ function removeNode() {
 }
 
 function updateText(e: Event) {
+  isEditing.value = false;
   const target = e.target as HTMLElement;
   store.updateNodeText(props.node.id, target.innerText);
+  // Re-focus the node wrapper to keep selection active
+  nextTick(() => {
+      nodeRef.value?.focus();
+  });
 }
 
-function onEnter(e: KeyboardEvent) {
-  (e.target as HTMLElement).blur(); // Trigger updateText
-  store.addSibling(props.node.id);
-}
+function onKeyDown(e: KeyboardEvent) {
+  if (isEditing.value) {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          (e.target as HTMLElement).blur(); // Just exit edit mode
+          // Do not add sibling here
+      }
+      return;
+  }
 
-function onTab() {
-  store.addChild(props.node.id);
-  // Optional: functionality to focus the new child could be added here
+  // Not editing commands
+  if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      startEditing();
+  } else if (e.key === 'Enter') {
+      // In selection mode, Enter creates a sibling
+      e.preventDefault();
+      store.addSibling(props.node.id);
+  } else if (e.key === 'Tab') {
+      e.preventDefault();
+      addChild();
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (props.node.id !== 'root') {
+          removeNode();
+      }
+  }
 }
 </script>
 
 <template>
-  <div class="mind-map-node" :style="style">
+  <div 
+    class="mind-map-node" 
+    :style="style"
+    ref="nodeRef"
+    tabindex="0"
+    @click="selectNode"
+    @dblclick="startEditing"
+    @keydown="onKeyDown"
+    :class="{ selected: isSelected }"
+  >
     <div 
+      ref="contentRef"
       class="node-content" 
-      contenteditable 
+      :contenteditable="isEditing" 
       @blur="updateText" 
-      @keydown.enter.prevent="onEnter"
-      @keydown.tab.prevent="onTab"
     >
       {{ node.text }}
     </div>
     
-    <div class="node-actions">
-      <button @click="addChild" title="Add Child">+</button>
-      <button @click="removeNode" title="Delete" v-if="node.id !== 'root'">x</button>
+    <div class="node-actions" v-if="isSelected && !isEditing">
+      <button @click.stop="addChild" title="Add Child">+</button>
+      <button @click.stop="removeNode" title="Delete" v-if="node.id !== 'root'">x</button>
     </div>
 
     <button 
       v-if="node.children.length > 0" 
       class="toggle-btn"
-      @click="store.toggleCollapse(node.id)"
+      @click.stop="store.toggleCollapse(node.id)"
+      @mousedown.stop
     >
       {{ node.isCollapsed ? '+' : '-' }}
     </button>
@@ -74,6 +143,7 @@ function onTab() {
   align-items: center;
   /* We use absolute positioning calculated by layout */
   width: 150px;
+  outline: none; /* Manage focus style manually via selected class */
 }
 
 .node-content {
@@ -86,18 +156,26 @@ function onTab() {
   text-align: center;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  user-select: none; /* Prevent text selection when dragging/clicking */
+}
+
+.node-content[contenteditable="true"] {
+    cursor: text;
+    user-select: text;
+    outline: 2px solid #646cff;
+}
+
+.mind-map-node.selected .node-content {
+    border-color: #646cff;
+    border-width: 2px;
 }
 
 .node-actions {
   display: flex;
   gap: 4px;
   margin-top: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.mind-map-node:hover .node-actions {
-  opacity: 1;
+  /* Always show actions if selected for mobile friendliness, or keep hover? 
+     Let's rely on selection now since we have it */
 }
 
 button {
@@ -121,5 +199,6 @@ button {
   border: 1px solid #ccc;
   background: white;
   font-size: 14px;
+  z-index: 10;
 }
 </style>

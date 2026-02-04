@@ -12,6 +12,8 @@ export const useMindMapStore = defineStore('mindmap', () => {
         parentId: null,
     });
 
+    const selectedNodeId = ref<string | null>(null);
+
     function findNode(id: string, node: MindMapNode = root.value): MindMapNode | undefined {
         if (node.id === id) return node;
         for (const child of node.children) {
@@ -34,6 +36,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
                 parentId: parentId,
             };
             parent.children.push(newNode);
+            selectNode(newNode.id);
         }
     }
 
@@ -83,16 +86,23 @@ export const useMindMapStore = defineStore('mindmap', () => {
             y: 0,
             parentId: null,
         };
+        selectedNodeId.value = null;
+    }
+
+    function selectNode(id: string | null) {
+        selectedNodeId.value = id;
     }
 
     return {
         root,
+        selectedNodeId,
         addChild,
         addSibling,
         deleteNode,
         updateNodeText,
         toggleCollapse,
         findNode,
-        reset
+        reset,
+        selectNode
     };
 });

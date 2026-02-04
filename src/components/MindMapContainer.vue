@@ -68,6 +68,10 @@ onMounted(() => {
 
 function onMouseDown(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('.node-content')) return; // Don't drag if clicking node
+  
+  // If clicking background, deselect
+  store.selectNode(null);
+
   isDragging.value = true;
   lastPos.value = { x: e.clientX, y: e.clientY };
 }
