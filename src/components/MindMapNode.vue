@@ -11,6 +11,7 @@ const store = useMindMapStore();
 const contentRef = ref<HTMLElement | null>(null);
 const nodeRef = ref<HTMLElement | null>(null);
 const isEditing = ref(false);
+const originalText = ref('');
 
 const isSelected = computed(() => store.selectedNodeId === props.node.id);
 
@@ -38,6 +39,7 @@ function selectNode(e: Event) {
 }
 
 function startEditing() {
+  originalText.value = props.node.text;
   isEditing.value = true;
   nextTick(() => {
     contentRef.value?.focus();
@@ -76,6 +78,14 @@ function onKeyDown(e: KeyboardEvent) {
           e.preventDefault();
           (e.target as HTMLElement).blur(); // Just exit edit mode
           // Do not add sibling here
+      } else if (e.key === 'Escape') {
+          e.preventDefault();
+          if (contentRef.value) {
+              contentRef.value.innerText = originalText.value;
+          }
+          isEditing.value = false;
+          // Blur to exit focus, updateText will run but with original text
+          (e.target as HTMLElement).blur();
       }
       return;
   }
