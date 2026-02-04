@@ -36,28 +36,46 @@ watch(() => store.root, () => {
   calculateTreeLayout(store.root);
 }, { deep: true, immediate: true });
 
-function centerRoot() {
+function centerNode(id: string) {
   if (!containerRef.value) return;
-  
+  const node = store.findNode(id);
+  if (!node) return;
+
   const containerWidth = containerRef.value.clientWidth;
   const containerHeight = containerRef.value.clientHeight;
-  
-  // Target position to center the root node
-  // Root node is at store.root.x, store.root.y
-  // We want: transform.x + store.root.x * k + NODE_WIDTH/2 * k = containerWidth / 2
-  // But wait, the transform applies to the whole canvas.
-  // The root is usually at 0,0 relative to the canvas origin if it's the first node, 
-  // but let's use its actual coordinates to be safe.
-  
-  const targetX = (containerWidth - NODE_WIDTH) / 2 - store.root.x;
-  const targetY = (containerHeight - NODE_HEIGHT) / 2 - store.root.y;
-  
-  transform.value = {
-    x: targetX,
-    y: targetY,
-    k: 1
-  };
+  const k = transform.value.k;
+
+  const nodeW = node.width || NODE_WIDTH;
+  const nodeH = node.height || NODE_HEIGHT;
+
+  // Node Center in Canvas Space
+  const nodeCenterX = node.x + nodeW / 2;
+  const nodeCenterY = node.y + nodeH / 2;
+
+  // Screen Center = CanvasPoint * k + Translate
+  // Translate = Screen Center - CanvasPoint * k
+  const targetX = (containerWidth / 2) - (nodeCenterX * k);
+  const targetY = (containerHeight / 2) - (nodeCenterY * k);
+
+  // Optional: smooth transition? For now, instant.
+  transform.value.x = targetX;
+  transform.value.y = targetY;
 }
+
+function centerRoot() {
+    centerNode('root');
+}
+
+// Ensure layout is up to date before centering?
+// Sometimes layout needs a tick.
+watch(() => store.selectedNodeId, (newId) => {
+    if (newId) {
+        // Wait for layout update if it was a new node
+        nextTick(() => {
+             centerNode(newId);
+        });
+    }
+});
 
 onMounted(() => {
   // Wait for initial layout and DOM render
