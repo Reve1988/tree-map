@@ -13,7 +13,7 @@ const nodeRef = ref<HTMLElement | null>(null);
 const isEditing = ref(false);
 const originalText = ref('');
 
-const isSelected = computed(() => store.selectedNodeId === props.node.id);
+const isSelected = computed(() => store.isNodeSelected(props.node.id));
 
 const style = computed(() => ({
   left: `${props.node.x}px`,
@@ -56,12 +56,11 @@ watch(isSelected, (val) => {
   }
 }, { immediate: true });
 
-function selectNode(e: Event) {
-   // Prevent bubbling so container doesn't deselect (if we implement that)
-   // But we also want to allow things? 
-   // Actually, stops propagation might be good.
+function selectNode(e: MouseEvent) {
+   // Prevent bubbling so container doesn't deselect
    e.stopPropagation(); 
-   store.selectNode(props.node.id);
+   const multiSelect = e.ctrlKey || e.metaKey || e.shiftKey;
+   store.selectNode(props.node.id, multiSelect);
 }
 
 function startEditing() {
