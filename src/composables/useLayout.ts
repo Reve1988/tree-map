@@ -1,8 +1,8 @@
 import type { MindMapNode } from '../types/mindmap';
 
-export const NODE_WIDTH = 150;
+export const NODE_WIDTH = 300;
 export const NODE_HEIGHT = 40;
-export const GAP_X = 50;
+export const GAP_X = 80;
 export const GAP_Y = 20;
 
 export function useMindMapLayout() {
@@ -20,37 +20,55 @@ export function useMindMapLayout() {
         layoutNode(root);
     }
 
-    function layoutNode(node: MindMapNode, depth = 0, startY = 0): number {
-        // Assign X based on depth
-        node.x = depth * (NODE_WIDTH + GAP_X);
+    function layoutNode(node: MindMapNode, x = 0, startY = 0): number {
+        // Use actual dimensions or defaults
+        const nodeW = node.width || NODE_WIDTH;
+        const nodeH = node.height || NODE_HEIGHT;
 
-        // If no children, it takes up 1 unit of height (or just its own height)
-        if (!node.children || node.children.length === 0) {
+        node.x = x;
+
+        // If no children, it takes up its own height plus gap
+        if (!node.children || node.children.length === 0 || node.isCollapsed) {
             node.y = startY;
-            return NODE_HEIGHT + GAP_Y; // Return total height used
+            return nodeH + GAP_Y; // Return total height used
         }
 
-        // If children, layout them
+        // Layout children
         let currentY = startY;
-        let totalHeight = 0;
+        let childrenTotalHeight = 0;
+
+        const childX = x + nodeW + GAP_X;
 
         for (const child of node.children) {
-            const childHeight = layoutNode(child, depth + 1, currentY);
+            const childHeight = layoutNode(child, childX, currentY);
             currentY += childHeight;
-            totalHeight += childHeight;
+            childrenTotalHeight += childHeight;
         }
 
-        // Parent Y is average of children Ys, roughly?
-        // Or just centered on the children's bounding box.
-        if (node.children.length > 0) {
-            const firstChild = node.children[0];
-            const lastChild = node.children[node.children.length - 1];
-            if (firstChild && lastChild) {
-                node.y = (firstChild.y + lastChild.y) / 2;
-            }
+        // Calculate parent Y
+        // Center parent relative to children's vertical span
+        const firstChild = node.children[0];
+        const lastChild = node.children[node.children.length - 1];
+
+        if (firstChild && lastChild) {
+            // Get Y center of the children block
+            // Note: child.y is top-left.
+            const firstChildCenter = firstChild.y + (firstChild.height || NODE_HEIGHT) / 2;
+            const lastChildCenter = lastChild.y + (lastChild.height || NODE_HEIGHT) / 2;
+            const childrenCenterY = (firstChildCenter + lastChildCenter) / 2;
+
+            node.y = childrenCenterY - nodeH / 2;
         }
 
-        return totalHeight;
+        // The space this subtree occupies is the max of node height and children height
+        // (If single child is smaller than parent, parent dictates height)
+        // But usually we just sum children. 
+        // If parent interacts with siblings, it needs to reserve space.
+        // For simplicity, wrap logical height by children.
+        // Exception: If children are smaller than parent, we might risk overlap if parent is huge.
+        // But in standard mind map, we fan out.
+        // Let's ensure minimal height is at least node height.
+        return Math.max(childrenTotalHeight, nodeH + GAP_Y);
     }
 
     return {

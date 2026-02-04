@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from 'vue';
+import { computed, ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import type { MindMapNode } from '../types/mindmap';
 import { useMindMapStore } from '../stores/mindmap';
 
@@ -20,6 +20,32 @@ const style = computed(() => ({
   top: `${props.node.y}px`,
   position: 'absolute' as const,
 }));
+
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+    if (nodeRef.value) {
+        resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                // Use borderBoxSize if available for better accuracy, fallback to contentRect
+                let width = entry.contentRect.width;
+                let height = entry.contentRect.height;
+                
+                if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
+                    width = entry.borderBoxSize[0].inlineSize;
+                    height = entry.borderBoxSize[0].blockSize;
+                }
+                
+                store.updateNodeSize(props.node.id, width, height);
+            }
+        });
+        resizeObserver.observe(nodeRef.value);
+    }
+});
+
+onUnmounted(() => {
+    resizeObserver?.disconnect();
+});
 
 // Watch selection to focus the node wrapper for keyboard events
 watch(isSelected, (val) => {
@@ -149,7 +175,9 @@ function onKeyDown(e: KeyboardEvent) {
   flex-direction: column;
   align-items: center;
   /* We use absolute positioning calculated by layout */
-  width: 150px;
+  width: auto;
+  max-width: 400px; /* Max width as requested */
+  min-width: 150px; /* Keep a minimum width */
   outline: none; /* Manage focus style manually via selected class */
 }
 
@@ -164,6 +192,8 @@ function onKeyDown(e: KeyboardEvent) {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   user-select: none; /* Prevent text selection when dragging/clicking */
+  white-space: pre-wrap; /* Allow wrapping */
+  word-break: break-word; /* Break long words */
 }
 
 .node-content[contenteditable="true"] {

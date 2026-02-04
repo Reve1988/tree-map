@@ -93,6 +93,17 @@ export const useMindMapStore = defineStore('mindmap', () => {
         selectedNodeId.value = id;
     }
 
+    function updateNodeSize(id: string, width: number, height: number) {
+        const node = findNode(id);
+        if (node) {
+            // Only update if changed to avoid unnecessary re-layouts
+            if (node.width !== width || node.height !== height) {
+                node.width = width;
+                node.height = height;
+            }
+        }
+    }
+
     return {
         root,
         selectedNodeId,
@@ -103,6 +114,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         toggleCollapse,
         findNode,
         reset,
-        selectNode
+        selectNode,
+        updateNodeSize
     };
 });
