@@ -5,7 +5,7 @@ import type { MindMapNode } from '../types/mindmap';
 export const useMindMapStore = defineStore('mindmap', () => {
     const root = ref<MindMapNode>({
         id: 'root',
-        text: 'Central Topic',
+        text: 'Main Topic',
         children: [],
         x: 0,
         y: 0,
@@ -74,6 +74,17 @@ export const useMindMapStore = defineStore('mindmap', () => {
         }
     }
 
+    function reset() {
+        root.value = {
+            id: 'root',
+            text: 'Main Topic',
+            children: [],
+            x: 0,
+            y: 0,
+            parentId: null,
+        };
+    }
+
     return {
         root,
         addChild,
@@ -81,6 +92,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         deleteNode,
         updateNodeText,
         toggleCollapse,
-        findNode
+        findNode,
+        reset
     };
 });

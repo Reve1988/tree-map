@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useMindMapStore } from '../stores/mindmap';
-import { useMindMapLayout } from '../composables/useLayout';
+import { useMindMapLayout, NODE_WIDTH, NODE_HEIGHT } from '../composables/useLayout';
 import MindMapNodeComponent from './MindMapNode.vue';
 import ConnectionLine from './ConnectionLine.vue';
 import Toolbar from './Toolbar.vue';
@@ -13,6 +13,7 @@ const { calculateTreeLayout } = useMindMapLayout();
 const transform = ref({ x: 0, y: 0, k: 1 });
 const isDragging = ref(false);
 const lastPos = ref({ x: 0, y: 0 });
+const containerRef = ref<HTMLElement | null>(null);
 
 // Flatten the tree for rendering
 const flatNodes = computed(() => {
@@ -34,6 +35,36 @@ function traverse(node: MindMapNode, list: MindMapNode[]) {
 watch(() => store.root, () => {
   calculateTreeLayout(store.root);
 }, { deep: true, immediate: true });
+
+function centerRoot() {
+  if (!containerRef.value) return;
+  
+  const containerWidth = containerRef.value.clientWidth;
+  const containerHeight = containerRef.value.clientHeight;
+  
+  // Target position to center the root node
+  // Root node is at store.root.x, store.root.y
+  // We want: transform.x + store.root.x * k + NODE_WIDTH/2 * k = containerWidth / 2
+  // But wait, the transform applies to the whole canvas.
+  // The root is usually at 0,0 relative to the canvas origin if it's the first node, 
+  // but let's use its actual coordinates to be safe.
+  
+  const targetX = (containerWidth - NODE_WIDTH) / 2 - store.root.x;
+  const targetY = (containerHeight - NODE_HEIGHT) / 2 - store.root.y;
+  
+  transform.value = {
+    x: targetX,
+    y: targetY,
+    k: 1
+  };
+}
+
+onMounted(() => {
+  // Wait for initial layout and DOM render
+  nextTick(() => {
+    centerRoot();
+  });
+});
 
 function onMouseDown(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('.node-content')) return; // Don't drag if clicking node

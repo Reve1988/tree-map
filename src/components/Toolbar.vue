@@ -35,13 +35,20 @@ function importData(event: Event) {
   };
   reader.readAsText(file);
 }
+
+function resetMap() {
+    if (confirm('모든 내용이 지워지고 초기화됩니다. 계속하시겠습니까?')) {
+        store.reset();
+    }
+}
 </script>
 
 <template>
   <div class="toolbar">
-    <button @click="exportData">Export JSON</button>
+    <button @click="resetMap">초기화</button>
+    <button @click="exportData">저장</button>
     <label class="file-btn">
-      Import JSON
+      불러오기
       <input type="file" accept=".json" @change="importData" hidden />
     </label>
   </div>

@@ -1,10 +1,11 @@
 import type { MindMapNode } from '../types/mindmap';
 
+export const NODE_WIDTH = 150;
+export const NODE_HEIGHT = 40;
+export const GAP_X = 50;
+export const GAP_Y = 20;
+
 export function useMindMapLayout() {
-    const NODE_WIDTH = 150;
-    const NODE_HEIGHT = 40;
-    const GAP_X = 50;
-    const GAP_Y = 20;
 
     function calculateTreeLayout(root: MindMapNode) {
         // First pass: calculate size of each subtree
