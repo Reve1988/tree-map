@@ -131,6 +131,10 @@ function onKeyDown(e: KeyboardEvent) {
       if (props.node.id !== 'root') {
           removeNode();
       }
+  } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      const direction = e.key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
+      store.navigateNode(props.node.id, direction);
   }
 }
 </script>

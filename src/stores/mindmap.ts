@@ -104,6 +104,38 @@ export const useMindMapStore = defineStore('mindmap', () => {
         }
     }
 
+    function navigateNode(id: string, direction: 'up' | 'down' | 'left' | 'right') {
+        const node = findNode(id);
+        if (!node) return;
+
+        if (direction === 'left') {
+            if (node.parentId) {
+                selectNode(node.parentId);
+            }
+        } else if (direction === 'right') {
+            if (node.children.length > 0 && !node.isCollapsed) {
+                // Select the middle child for better UX, or just the first?
+                // Let's select the middle one to align with visual intuition
+                const mid = Math.floor(node.children.length / 2);
+                selectNode(node.children[mid].id);
+            }
+        } else if (direction === 'up' || direction === 'down') {
+            if (node.parentId) {
+                const parent = findNode(node.parentId);
+                if (parent) {
+                    const index = parent.children.findIndex(c => c.id === id);
+                    if (index !== -1) {
+                        if (direction === 'up' && index > 0) {
+                            selectNode(parent.children[index - 1].id);
+                        } else if (direction === 'down' && index < parent.children.length - 1) {
+                            selectNode(parent.children[index + 1].id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return {
         root,
         selectedNodeId,
@@ -115,6 +147,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         findNode,
         reset,
         selectNode,
-        updateNodeSize
+        updateNodeSize,
+        navigateNode
     };
 });
