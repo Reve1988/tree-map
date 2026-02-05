@@ -9,10 +9,15 @@ const props = defineProps<{
 }>();
 
 const store = useMindMapStore();
-const contentRef = ref<HTMLElement | null>(null);
+const textRef = ref<HTMLElement | null>(null);
 const nodeRef = ref<HTMLElement | null>(null);
 const isEditing = ref(false);
 const originalText = ref('');
+
+// Marker context menu
+const showMarkerMenu = ref(false);
+const markerMenuPosition = ref({ x: 0, y: 0 });
+const selectedMarkerGroupId = ref<string | null>(null);
 
 const isSelected = computed(() => store.isNodeSelected(props.node.id));
 
@@ -75,12 +80,12 @@ function startEditing() {
   originalText.value = props.node.text;
   isEditing.value = true;
   nextTick(() => {
-    contentRef.value?.focus();
+    textRef.value?.focus();
     // Select all text
     const range = document.createRange();
     const sel = window.getSelection();
-    if (contentRef.value && sel) {
-        range.selectNodeContents(contentRef.value);
+    if (textRef.value && sel) {
+        range.selectNodeContents(textRef.value);
         sel.removeAllRanges();
         sel.addRange(range);
     }
@@ -113,8 +118,8 @@ function onKeyDown(e: KeyboardEvent) {
           // Do not add sibling here
       } else if (e.key === 'Escape') {
           e.preventDefault();
-          if (contentRef.value) {
-              contentRef.value.innerText = originalText.value;
+          if (textRef.value) {
+              textRef.value.innerText = originalText.value;
           }
           isEditing.value = false;
           // Blur to exit focus, updateText will run but with original text
@@ -144,6 +149,38 @@ function onKeyDown(e: KeyboardEvent) {
       store.navigateNode(props.node.id, direction);
   }
 }
+
+function onMarkerRightClick(e: MouseEvent, groupId: string) {
+  e.preventDefault();
+  e.stopPropagation();
+  selectedMarkerGroupId.value = groupId;
+  
+  // Use exact click position
+  markerMenuPosition.value = { x: e.clientX, y: e.clientY };
+  showMarkerMenu.value = true;
+}
+
+function deleteMarker() {
+  if (selectedMarkerGroupId.value) {
+    store.removeMarkerGroupFromNodes([props.node.id], selectedMarkerGroupId.value);
+    showMarkerMenu.value = false;
+    selectedMarkerGroupId.value = null;
+  }
+}
+
+function closeMarkerMenu() {
+  showMarkerMenu.value = false;
+  selectedMarkerGroupId.value = null;
+}
+
+// Close menu on click outside
+onMounted(() => {
+  document.addEventListener('click', closeMarkerMenu);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMarkerMenu);
+});
 </script>
 
 <template>
@@ -158,10 +195,7 @@ function onKeyDown(e: KeyboardEvent) {
     :class="{ selected: isSelected }"
   >
     <div 
-      ref="contentRef"
       class="node-content" 
-      :contenteditable="isEditing" 
-      @blur="updateText" 
     >
       <div class="markers-container" v-if="nodeMarkers.length > 0">
         <span 
@@ -170,11 +204,17 @@ function onKeyDown(e: KeyboardEvent) {
           class="marker-badge"
           :style="{ backgroundColor: marker.color }"
           :title="marker.label"
+          @contextmenu="onMarkerRightClick($event, marker.groupId)"
         >
           <span v-if="marker.icon" class="marker-text">{{ marker.icon }}</span>
         </span>
       </div>
-      {{ node.text }}
+      <span 
+        ref="textRef"
+        class="node-text"
+        :contenteditable="isEditing"
+        @blur="updateText"
+      >{{ node.text }}</span>
     </div>
     
 
@@ -189,6 +229,18 @@ function onKeyDown(e: KeyboardEvent) {
     </button>
 
   </div>
+  
+  <!-- Marker Context Menu (teleported to body) -->
+  <Teleport to="body">
+    <div 
+      v-if="showMarkerMenu" 
+      class="marker-context-menu"
+      :style="{ left: `${markerMenuPosition.x}px`, top: `${markerMenuPosition.y}px` }"
+      @click.stop
+    >
+      <button @click="deleteMarker" class="menu-item">마커 삭제</button>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -217,17 +269,24 @@ function onKeyDown(e: KeyboardEvent) {
   user-select: none; /* Prevent text selection when dragging/clicking */
   white-space: pre-wrap; /* Allow wrapping */
   word-break: break-word; /* Break long words */
-}
-
-.node-content[contenteditable="true"] {
-    cursor: text;
-    user-select: text;
-    outline: 2px solid #646cff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mind-map-node.selected .node-content {
     border-color: #646cff;
     border-width: 2px;
+}
+
+.node-text {
+  outline: none;
+  flex: 1;
+}
+
+.node-text[contenteditable="true"] {
+  cursor: text;
+  user-select: text;
 }
 
 
@@ -280,5 +339,33 @@ button {
 
 .marker-text {
   line-height: 1;
+}
+
+.marker-context-menu {
+  position: fixed;
+  background: var(--toolbar-bg);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10000;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--button-bg);
+  color: var(--text-color);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: var(--button-hover);
 }
 </style>
