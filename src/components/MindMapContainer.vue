@@ -250,7 +250,8 @@ function onContextMenu(e: Event) {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #f0f2f5;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   cursor: default; /* Changed from grab since left click is select */
   user-select: none; /* Prevent text selection during drag */
 }
@@ -283,8 +284,8 @@ function onContextMenu(e: Event) {
 
 .selection-box {
     position: absolute;
-    border: 1px solid #00aaff;
-    background-color: rgba(0, 170, 255, 0.2);
+    border: 1px solid var(--selection-color);
+    background-color: var(--selection-bg);
     pointer-events: none;
     z-index: 1000;
 }

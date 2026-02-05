@@ -185,8 +185,9 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 .node-content {
-  background: white;
-  border: 1px solid #ccc;
+  background: var(--node-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 8px;
   min-height: 20px;
@@ -230,8 +231,9 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ccc;
-  background: white;
+  border: 1px solid var(--border-color);
+  background: var(--node-bg);
+  color: var(--text-color);
   font-size: 14px;
   z-index: 10;
 }
