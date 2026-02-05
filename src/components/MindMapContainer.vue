@@ -84,6 +84,8 @@ onMounted(() => {
 
 function onMouseDown(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('.node-content')) return;
+  // Prevent clearing selection when clicking toolbar
+  if ((e.target as HTMLElement).closest('.toolbar')) return;
 
   if (e.button === 2) {
       // Right Click -> Pan

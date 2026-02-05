@@ -2,6 +2,7 @@
 import { computed, ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import type { MindMapNode } from '../types/mindmap';
 import { useMindMapStore } from '../stores/mindmap';
+import { getMarkerById } from '../types/markers';
 
 const props = defineProps<{
   node: MindMapNode;
@@ -14,6 +15,13 @@ const isEditing = ref(false);
 const originalText = ref('');
 
 const isSelected = computed(() => store.isNodeSelected(props.node.id));
+
+const nodeMarkers = computed(() => {
+  if (!props.node.markers) return [];
+  return Object.values(props.node.markers)
+    .map(markerId => getMarkerById(markerId))
+    .filter(marker => marker !== undefined);
+});
 
 const style = computed(() => ({
   left: `${props.node.x}px`,
@@ -155,6 +163,17 @@ function onKeyDown(e: KeyboardEvent) {
       :contenteditable="isEditing" 
       @blur="updateText" 
     >
+      <div class="markers-container" v-if="nodeMarkers.length > 0">
+        <span 
+          v-for="marker in nodeMarkers" 
+          :key="marker.id" 
+          class="marker-badge"
+          :style="{ backgroundColor: marker.color }"
+          :title="marker.label"
+        >
+          <span v-if="marker.icon" class="marker-text">{{ marker.icon }}</span>
+        </span>
+      </div>
       {{ node.text }}
     </div>
     
@@ -236,5 +255,30 @@ button {
   color: var(--text-color);
   font-size: 14px;
   z-index: 10;
+}
+
+.markers-container {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 6px;
+  align-items: center;
+}
+
+.marker-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.marker-text {
+  line-height: 1;
 }
 </style>

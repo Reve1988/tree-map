@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useMindMapStore } from '../stores/mindmap';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import MarkerPicker from './MarkerPicker.vue';
 
 const store = useMindMapStore();
+const toolbarRef = ref<HTMLElement | null>(null);
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 const themeMode = ref<ThemeMode>('auto');
@@ -60,12 +62,16 @@ onMounted(() => {
     }
   };
   mediaQuery.addEventListener('change', mediaQueryListener);
+
+  // Close marker picker on outside click
+  document.addEventListener('click', handleOutsideClick);
 });
 
 onUnmounted(() => {
   if (mediaQuery && mediaQueryListener) {
     mediaQuery.removeEventListener('change', mediaQueryListener);
   }
+  document.removeEventListener('click', handleOutsideClick);
 });
 
 function exportData() {
@@ -117,13 +123,49 @@ function getThemeTooltip() {
   }
 }
 
+// Marker picker state
+const showMarkerPicker = ref(false);
+const hasSelection = computed(() => store.selectedNodeIds.size > 0);
+
+function toggleMarkerPicker() {
+  if (!hasSelection.value) return;
+  showMarkerPicker.value = !showMarkerPicker.value;
+}
+
+function handleOutsideClick(event: MouseEvent) {
+  if (!toolbarRef.value || !showMarkerPicker.value) return;
+  if (!toolbarRef.value.contains(event.target as Node)) {
+    showMarkerPicker.value = false;
+  }
+}
+
+function handleMarkerSelect(groupId: string, markerId: string) {
+  const selectedIds = Array.from(store.selectedNodeIds);
+  store.addMarkerToNodes(selectedIds, groupId, markerId);
+  showMarkerPicker.value = false;
+}
+
 const emit = defineEmits<{
   (e: 'convert'): void
 }>();
 </script>
 
 <template>
-  <div class="toolbar">
+  <div class="toolbar" ref="toolbarRef">
+    <!-- Marker Button -->
+    <div class="marker-button-container">
+      <button 
+        @click="toggleMarkerPicker" 
+        class="marker-btn"
+        :class="{ disabled: !hasSelection }"
+        :disabled="!hasSelection"
+        title="마커 추가"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </button>
+    </div>
     <button @click="resetMap">초기화</button>
     <button @click="exportData">저장</button>
     <label class="file-btn">
@@ -154,6 +196,9 @@ const emit = defineEmits<{
         <line x1="12" y1="17" x2="12" y2="21"/>
       </svg>
     </button>
+    
+    <!-- Marker Picker below toolbar -->
+    <MarkerPicker :show="showMarkerPicker" @selectMarker="handleMarkerSelect" />
   </div>
 </template>
 
@@ -197,5 +242,19 @@ button, .file-btn {
 
 button:hover, .file-btn:hover {
   background: var(--button-hover);
+}
+
+.marker-button-container {
+  position: relative;
+  display: flex;
+}
+
+.marker-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.marker-btn.disabled:hover {
+  background: var(--button-bg);
 }
 </style>

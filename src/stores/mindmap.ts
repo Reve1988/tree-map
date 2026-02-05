@@ -161,6 +161,38 @@ export const useMindMapStore = defineStore('mindmap', () => {
         }
     }
 
+    // Marker management
+    function addMarkerToNodes(nodeIds: string[], markerGroupId: string, markerId: string) {
+        nodeIds.forEach(id => {
+            const node = findNode(id);
+            if (node) {
+                if (!node.markers) {
+                    node.markers = {};
+                }
+                // Replace existing marker in this group
+                node.markers[markerGroupId] = markerId;
+            }
+        });
+    }
+
+    function removeMarkerGroupFromNodes(nodeIds: string[], markerGroupId: string) {
+        nodeIds.forEach(id => {
+            const node = findNode(id);
+            if (node && node.markers) {
+                delete node.markers[markerGroupId];
+                // Clean up empty markers object
+                if (Object.keys(node.markers).length === 0) {
+                    delete node.markers;
+                }
+            }
+        });
+    }
+
+    function getNodeMarkers(nodeId: string): Record<string, string> {
+        const node = findNode(nodeId);
+        return node?.markers || {};
+    }
+
     function navigateNode(id: string, direction: 'up' | 'down' | 'left' | 'right') {
         const node = findNode(id);
         if (!node) return;
@@ -210,6 +242,9 @@ export const useMindMapStore = defineStore('mindmap', () => {
         selectNode,
         clearSelection,
         updateNodeSize,
-        navigateNode
+        navigateNode,
+        addMarkerToNodes,
+        removeMarkerGroupFromNodes,
+        getNodeMarkers,
     };
 });

@@ -8,4 +8,5 @@ export interface MindMapNode {
     height?: number; // For layout calculations
     parentId: string | null;
     isCollapsed?: boolean;
+    markers?: Record<string, string>; // markerGroupId -> markerId
 }
