@@ -67,14 +67,14 @@ describe('MindMap Store - Marker Tests', () => {
         // Add two child nodes
         store.addChild('root')
         store.addChild('root')
-        const child1Id = store.root.children[0].id
-        const child2Id = store.root.children[1].id
+        const child1Id = store.root.children[0]!.id
+        const child2Id = store.root.children[1]!.id
 
         // Add marker to both children
         store.addMarkerToNodes([child1Id, child2Id], 'priority', 'priority-3')
 
-        expect(store.root.children[0].markers?.['priority']).toBe('priority-3')
-        expect(store.root.children[1].markers?.['priority']).toBe('priority-3')
+        expect(store.root.children[0]!.markers?.['priority']).toBe('priority-3')
+        expect(store.root.children[1]!.markers?.['priority']).toBe('priority-3')
     })
 
     it('should get node markers correctly', () => {
