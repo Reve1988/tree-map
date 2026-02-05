@@ -5,6 +5,7 @@ import { useMindMapLayout, NODE_WIDTH, NODE_HEIGHT } from '../composables/useLay
 import MindMapNodeComponent from './MindMapNode.vue';
 import ConnectionLine from './ConnectionLine.vue';
 import Toolbar from './Toolbar.vue';
+import ZoomControl from './ZoomControl.vue';
 import type { MindMapNode } from '../types/mindmap';
 
 const store = useMindMapStore();
@@ -17,6 +18,10 @@ const selectionBox = ref({ x: 0, y: 0, width: 0, height: 0 });
 const selectionStart = ref({ x: 0, y: 0 });
 const lastPos = ref({ x: 0, y: 0 });
 const containerRef = ref<HTMLElement | null>(null);
+
+// Zoom limits
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 3;
 
 // Flatten the tree for rendering
 const flatNodes = computed(() => {
@@ -192,8 +197,25 @@ function onWheel(e: WheelEvent) {
   e.preventDefault();
   const scaleBy = 1.1;
   const oldScale = transform.value.k;
-  const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+  let newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+  
+  // Enforce zoom limits
+  newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
   transform.value.k = newScale;
+}
+
+function zoomIn() {
+  const newZoom = Math.min(transform.value.k + 0.1, MAX_ZOOM);
+  transform.value.k = newZoom;
+}
+
+function zoomOut() {
+  const newZoom = Math.max(transform.value.k - 0.1, MIN_ZOOM);
+  transform.value.k = newZoom;
+}
+
+function resetZoom() {
+  transform.value.k = 1;
 }
 
 function onContextMenu(e: Event) {
@@ -244,6 +266,16 @@ function onContextMenu(e: Event) {
             height: selectionBox.height + 'px'
         }"
     ></div>
+    
+    <!-- Zoom Control -->
+    <ZoomControl 
+      :zoom="transform.k"
+      :min-zoom="MIN_ZOOM"
+      :max-zoom="MAX_ZOOM"
+      @zoom-in="zoomIn"
+      @zoom-out="zoomOut"
+      @reset-zoom="resetZoom"
+    />
   </div>
 </template>
 
