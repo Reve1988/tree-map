@@ -9,4 +9,5 @@ export interface MindMapNode {
     parentId: string | null;
     isCollapsed?: boolean;
     markers?: Record<string, string>; // markerGroupId -> markerId
+    image?: string; // Base64 encoded image
 }

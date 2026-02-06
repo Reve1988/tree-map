@@ -4,6 +4,7 @@ import { useMediaQuery } from '@vueuse/core';
 import type { MindMapNode } from '../types/mindmap';
 import { useMindMapStore } from '../stores/mindmap';
 import { getMarkerById } from '../types/markers';
+import { resizeImage } from '../utils/imageUtils';
 
 // Detect touch device
 const isTouchDevice = useMediaQuery('(pointer: coarse)');
@@ -29,6 +30,12 @@ const markerMenuPosition = ref({ x: 0, y: 0 });
 const selectedMarkerGroupId = ref<string | null>(null);
 
 // Node context menu uses store.nodeContextMenu for global state
+
+// Image upload
+const imageInputRef = ref<HTMLInputElement | null>(null);
+
+// Image zoom modal
+const showImageModal = ref(false);
 
 const isSelected = computed(() => store.isNodeSelected(props.node.id));
 
@@ -428,6 +435,56 @@ function onMarkerTouchMove() {
   }
 }
 
+// Image attachment handlers
+function attachImage() {
+  imageInputRef.value?.click();
+}
+
+async function handleImageSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  
+  if (!file) return;
+  
+  // Check if file is an image
+  if (!file.type.startsWith('image/')) {
+    alert('Please select an image file');
+    return;
+  }
+  
+  try {
+    const base64Image = await resizeImage(file, 1000, 0.8);
+    props.node.image = base64Image;
+    // Clear input to allow selecting the same file again
+    input.value = '';
+    
+    // Trigger layout recalculation after image is added
+    await nextTick();
+    // Force update by touching the node to trigger reactivity
+    store.updateNodeSize(props.node.id, props.node.width || 300, props.node.height || 40);
+  } catch (error) {
+    console.error('Failed to process image:', error);
+    alert('Failed to load image. Please try again.');
+  }
+}
+
+async function removeImage() {
+  props.node.image = undefined;
+  closeNodeMenu();
+  
+  // Trigger layout recalculation after image is removed
+  await nextTick();
+  store.updateNodeSize(props.node.id, props.node.width || 300, props.node.height || 40);
+}
+
+function openImageModal() {
+  showImageModal.value = true;
+}
+
+function closeImageModal() {
+  showImageModal.value = false;
+}
+
 // Close menus on click outside
 onMounted(() => {
   document.addEventListener('click', closeMarkerMenu);
@@ -589,28 +646,45 @@ function onDrop(e: DragEvent) {
     <div 
       class="node-content" 
     >
-      <div class="markers-container" v-if="nodeMarkers.length > 0">
+      <!-- Text and markers row -->
+      <div class="text-row">
+        <div class="markers-container" v-if="nodeMarkers.length > 0">
+          <span 
+            v-for="marker in nodeMarkers" 
+            :key="marker.id" 
+            class="marker-badge"
+            :style="{ backgroundColor: marker.color }"
+            :title="marker.label"
+            @contextmenu="onMarkerRightClick($event, marker.groupId)"
+            @touchstart="onMarkerTouchStart($event, marker.groupId)"
+            @touchmove="onMarkerTouchMove"
+            @touchend="onMarkerTouchEnd"
+          >
+            <span v-if="marker.icon" class="marker-text">{{ marker.icon }}</span>
+          </span>
+        </div>
         <span 
-          v-for="marker in nodeMarkers" 
-          :key="marker.id" 
-          class="marker-badge"
-          :style="{ backgroundColor: marker.color }"
-          :title="marker.label"
-          @contextmenu="onMarkerRightClick($event, marker.groupId)"
-          @touchstart="onMarkerTouchStart($event, marker.groupId)"
-          @touchmove="onMarkerTouchMove"
-          @touchend="onMarkerTouchEnd"
-        >
-          <span v-if="marker.icon" class="marker-text">{{ marker.icon }}</span>
-        </span>
+          ref="textRef"
+          class="node-text"
+          :contenteditable="isEditing"
+          @blur="updateText"
+        >{{ node.text }}</span>
       </div>
-      <span 
-        ref="textRef"
-        class="node-text"
-        :contenteditable="isEditing"
-        @blur="updateText"
-      >{{ node.text }}</span>
+      
+      <!-- Image preview -->
+      <div v-if="node.image" class="node-image" @click.stop="openImageModal">
+        <img :src="node.image" alt="Node image" />
+      </div>
     </div>
+    
+    <!-- Hidden file input for image upload -->
+    <input 
+      ref="imageInputRef"
+      type="file"
+      accept="image/*"
+      style="display: none"
+      @change="handleImageSelect"
+    />
     
 
 
@@ -668,9 +742,23 @@ function onDrop(e: DragEvent) {
       :style="{ left: `${store.nodeContextMenu.x}px`, top: `${store.nodeContextMenu.y}px` }"
       @click.stop
     >
+      <button @click="attachImage" class="menu-item">이미지 첨부</button>
+      <button v-if="node.image" @click="removeImage" class="menu-item">이미지 삭제</button>
       <button v-if="node.id !== 'root'" @click="deleteNodeFromMenu" class="menu-item delete-item">노드 삭제</button>
       <button v-else @click="closeNodeMenu" class="menu-item" disabled>루트 노드는 삭제할 수 없습니다</button>
     </div>
+  </Teleport>
+  
+  <!-- Image Zoom Modal (teleported to body) -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="showImageModal" class="image-modal-overlay" @click="closeImageModal">
+        <div class="image-modal-content" @click.stop>
+          <button class="image-modal-close" @click="closeImageModal">×</button>
+          <img :src="node.image" alt="Node image" class="image-modal-img" />
+        </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -701,6 +789,7 @@ function onDrop(e: DragEvent) {
   white-space: pre-wrap; /* Allow wrapping */
   word-break: break-word; /* Break long words */
   display: flex;
+  flex-direction: column; /* Stack text and image vertically */
   align-items: center;
   justify-content: center;
 }
@@ -713,6 +802,14 @@ function onDrop(e: DragEvent) {
 .node-text {
   outline: none;
   flex: 1;
+}
+
+/* Text row: contains markers and text in horizontal layout */
+.text-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
 }
 
 .node-text[contenteditable="true"] {
@@ -912,6 +1009,90 @@ button {
   bottom: 0;
   left: 50%;
   transform: translate(-50%, 100%);
+}
+
+/* Node Image Preview */
+.node-image {
+  margin-top: 8px;
+  width: auto;
+  max-width: 300px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.node-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* Image Zoom Modal */
+.image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-modal-img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.image-modal-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.image-modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Modal fade transition */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
 }
 
 </style>

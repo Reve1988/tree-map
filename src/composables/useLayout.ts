@@ -57,18 +57,25 @@ export function useMindMapLayout() {
             const lastChildCenter = lastChild.y + (lastChild.height || NODE_HEIGHT) / 2;
             const childrenCenterY = (firstChildCenter + lastChildCenter) / 2;
 
-            node.y = childrenCenterY - nodeH / 2;
+            // Center parent relative to children, but don't go above startY
+            // This prevents tall parent nodes (e.g., with images) from overlapping siblings
+            const idealY = childrenCenterY - nodeH / 2;
+            node.y = Math.max(idealY, startY);
         }
 
-        // The space this subtree occupies is the max of node height and children height
-        // (If single child is smaller than parent, parent dictates height)
-        // But usually we just sum children. 
-        // If parent interacts with siblings, it needs to reserve space.
-        // For simplicity, wrap logical height by children.
-        // Exception: If children are smaller than parent, we might risk overlap if parent is huge.
-        // But in standard mind map, we fan out.
-        // Let's ensure minimal height is at least node height.
-        return Math.max(childrenTotalHeight, nodeH + GAP_Y);
+        // Calculate the actual space this subtree occupies
+        // We need to consider both the children's space and the parent's space
+        const parentTop = node.y;
+        const parentBottom = node.y + nodeH;
+        const childrenTop = startY;
+        const childrenBottom = startY + childrenTotalHeight;
+
+        // The subtree occupies from the topmost to the bottommost element
+        const subtreeTop = Math.min(parentTop, childrenTop);
+        const subtreeBottom = Math.max(parentBottom, childrenBottom);
+        const subtreeHeight = subtreeBottom - subtreeTop + GAP_Y;
+
+        return subtreeHeight;
     }
 
     return {
