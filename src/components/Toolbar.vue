@@ -103,10 +103,19 @@ function importData(event: Event) {
 }
 
 function resetMap() {
-    if (confirm('모든 내용이 지워지고 초기화됩니다. 계속하시겠습니까?')) {
-        store.reset();
-    }
+    showResetModal.value = true;
 }
+
+function confirmReset() {
+    store.reset();
+    showResetModal.value = false;
+}
+
+function cancelReset() {
+    showResetModal.value = false;
+}
+
+const showResetModal = ref(false);
 
 // Marker picker state
 const showMarkerPicker = ref(false);
@@ -234,6 +243,33 @@ const emit = defineEmits<{
       </svg>
     </button>
   </div>
+  
+  <!-- Reset Confirm Modal -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="showResetModal" class="modal-overlay" @click="cancelReset">
+        <div class="modal-content" @click.stop>
+          <div class="modal-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <h3 class="modal-title">새 파일 만들기</h3>
+          <p class="modal-message">
+            현재 작업 중인 마인드맵이 초기화됩니다.<br/>
+            저장하지 않은 내용은 복구할 수 없습니다.<br/>
+            계속 진행하시겠습니까?
+          </p>
+          <div class="modal-actions">
+            <button class="modal-btn modal-cancel" @click="cancelReset">취소</button>
+            <button class="modal-btn modal-confirm" @click="confirmReset">초기화</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -322,5 +358,131 @@ button:hover, .file-btn:hover {
 
 .theme-dropdown button.active {
   background: var(--button-hover);
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: var(--toolbar-bg);
+  color: var(--text-color);
+  border-radius: 16px;
+  padding: 32px;
+  width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.modal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.modal-icon.warning {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+}
+
+.modal-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.modal-message {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: auto;
+  width: auto;
+}
+
+.modal-cancel {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.modal-cancel:hover {
+  background: var(--button-bg);
+}
+
+.modal-confirm {
+  background: #f44336;
+  border: none;
+  color: white;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.modal-confirm:hover {
+  background: #d32f2f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+/* Modal Transition */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-active .modal-content {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-fade-leave-active .modal-content {
+  transition: all 0.2s ease-in;
+}
+
+.modal-fade-enter-from .modal-content,
+.modal-fade-leave-to .modal-content {
+  transform: scale(0.9);
+  opacity: 0;
 }
 </style>
