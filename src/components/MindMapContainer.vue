@@ -97,7 +97,14 @@ function onMouseDown(e: MouseEvent) {
       isPanning.value = true;
       lastPos.value = { x: e.clientX, y: e.clientY };
   } else if (e.button === 0) {
-      // Left Click -> Selection
+      // Left Click -> Selection (but not if dragging a node)
+      // Check if we're starting a drag on a node
+      const isDraggingNode = (e.target as HTMLElement).closest('.mind-map-node');
+      if (isDraggingNode) {
+          // Let the node handle the drag
+          return;
+      }
+      
       // If not holding Ctrl/Shift, clear previous selection (unless handled by node click, but this is background)
       if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
           store.clearSelection();

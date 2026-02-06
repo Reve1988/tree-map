@@ -14,6 +14,11 @@ const nodeRef = ref<HTMLElement | null>(null);
 const isEditing = ref(false);
 const originalText = ref('');
 
+// Drag and Drop state
+const isDragging = ref(false);
+const isDragOver = ref(false);
+const dropZone = ref<'top' | 'middle' | 'bottom' | null>(null);
+
 // Marker context menu
 const showMarkerMenu = ref(false);
 const markerMenuPosition = ref({ x: 0, y: 0 });
@@ -68,6 +73,24 @@ watch(isSelected, (val) => {
     });
   }
 }, { immediate: true });
+
+// Watch draggingNodeId to clear drop state when drag ends globally
+watch(() => store.draggingNodeId, (val) => {
+  if (val === null) {
+    // Clear all drop states when drag ends
+    isDragOver.value = false;
+    dropZone.value = null;
+  }
+});
+
+// Watch dragOverNodeId to clear drop state when dragging over a different node
+watch(() => store.dragOverNodeId, (newVal) => {
+  // If dragging over a different node, clear this node's drop state
+  if (newVal !== null && newVal !== props.node.id) {
+    isDragOver.value = false;
+    dropZone.value = null;
+  }
+});
 
 function selectNode(e: MouseEvent) {
    // Prevent bubbling so container doesn't deselect
@@ -181,6 +204,121 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', closeMarkerMenu);
 });
+
+// Drag and Drop handlers
+function onDragStart(e: DragEvent) {
+  if (isEditing.value) {
+    e.preventDefault();
+    return;
+  }
+  
+  isDragging.value = true;
+  store.draggingNodeId = props.node.id;
+  
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', props.node.id);
+  }
+  
+  // Add visual feedback
+  setTimeout(() => {
+    if (nodeRef.value) {
+      nodeRef.value.style.opacity = '0.5';
+    }
+  }, 0);
+}
+
+function onDragEnd() {
+  isDragging.value = false;
+  isDragOver.value = false;
+  dropZone.value = null;
+  store.draggingNodeId = null;
+  store.dragOverNodeId = null;
+  
+  if (nodeRef.value) {
+    nodeRef.value.style.opacity = '1';
+  }
+}
+
+function onDragOver(e: DragEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Use the store's draggingNodeId (shared across all node instances)
+  const draggedId = store.draggingNodeId;
+  if (!draggedId || draggedId === props.node.id) {
+    return;
+  }
+  
+  // Check if this is a valid drop target
+  if (!store.canMoveNode(draggedId, props.node.id)) {
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'none';
+    }
+    isDragOver.value = false;
+    return;
+  }
+  
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+  
+  // Update the global dragOverNodeId to clear other nodes' drop states
+  store.dragOverNodeId = props.node.id;
+  
+  isDragOver.value = true;
+  
+  // Determine drop zone based on mouse position
+  const rect = nodeRef.value?.getBoundingClientRect();
+  if (rect) {
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+    
+    if (y < height * 0.25) {
+      dropZone.value = 'top';
+    } else if (y > height * 0.75) {
+      dropZone.value = 'bottom';
+    } else {
+      dropZone.value = 'middle';
+    }
+  }
+}
+
+function onDragLeave(e: DragEvent) {
+  // Only clear if we're actually leaving the node (not entering a child element)
+  const target = e.target as HTMLElement;
+  if (target === nodeRef.value) {
+    isDragOver.value = false;
+    dropZone.value = null;
+  }
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const draggedNodeId = e.dataTransfer?.getData('text/plain');
+  if (!draggedNodeId || draggedNodeId === props.node.id) {
+    isDragOver.value = false;
+    dropZone.value = null;
+    return;
+  }
+  
+  // Handle the drop based on drop zone
+  if (dropZone.value === 'middle') {
+    // Drop in the middle: make it a child
+    store.moveNodeToParent(draggedNodeId, props.node.id);
+  } else if (dropZone.value === 'top') {
+    // Drop on top: insert before this node (as sibling)
+    store.reorderNode(draggedNodeId, props.node.id, true);
+  } else if (dropZone.value === 'bottom') {
+    // Drop on bottom: insert after this node (as sibling)
+    store.reorderNode(draggedNodeId, props.node.id, false);
+  }
+  
+  isDragOver.value = false;
+  dropZone.value = null;
+}
 </script>
 
 <template>
@@ -189,10 +327,22 @@ onUnmounted(() => {
     :style="style"
     ref="nodeRef"
     tabindex="0"
+    draggable="true"
     @click="selectNode"
     @dblclick="startEditing"
     @keydown="onKeyDown"
-    :class="{ selected: isSelected }"
+    @dragstart="onDragStart"
+    @dragend="onDragEnd"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+    :class="{ 
+      selected: isSelected,
+      'drag-over': isDragOver,
+      'drop-top': dropZone === 'top',
+      'drop-middle': dropZone === 'middle',
+      'drop-bottom': dropZone === 'bottom'
+    }"
   >
     <div 
       class="node-content" 
@@ -368,4 +518,35 @@ button {
 .menu-item:hover {
   background: var(--button-hover);
 }
+
+/* Drag and Drop styles */
+.mind-map-node.drag-over {
+  opacity: 0.8;
+}
+
+.mind-map-node.drop-top::before,
+.mind-map-node.drop-bottom::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #646cff;
+  z-index: 1000;
+}
+
+.mind-map-node.drop-top::before {
+  top: -2px;
+}
+
+.mind-map-node.drop-bottom::after {
+  bottom: -2px;
+}
+
+.mind-map-node.drop-middle .node-content {
+  outline: 2px solid #646cff;
+  outline-offset: 2px;
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
 </style>

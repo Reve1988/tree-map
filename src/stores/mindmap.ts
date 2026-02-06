@@ -15,6 +15,10 @@ export const useMindMapStore = defineStore('mindmap', () => {
     // Multi-selection state
     const selectedNodeIds = ref<Set<string>>(new Set());
 
+    // Drag and Drop state
+    const draggingNodeId = ref<string | null>(null);
+    const dragOverNodeId = ref<string | null>(null);
+
     // Computed for backward compatibility (returns the most recently selected one)
     const selectedNodeId = computed(() => {
         if (selectedNodeIds.value.size === 0) return null;
@@ -226,6 +230,128 @@ export const useMindMapStore = defineStore('mindmap', () => {
         }
     }
 
+    // Drag and Drop functions
+    function isDescendant(ancestorId: string, descendantId: string): boolean {
+        const ancestor = findNode(ancestorId);
+        if (!ancestor) return false;
+
+        function checkChildren(node: MindMapNode): boolean {
+            if (node.id === descendantId) return true;
+            for (const child of node.children) {
+                if (checkChildren(child)) return true;
+            }
+            return false;
+        }
+
+        return checkChildren(ancestor);
+    }
+
+    function canMoveNode(nodeId: string, targetParentId: string): boolean {
+        // Cannot move to itself
+        if (nodeId === targetParentId) return false;
+
+        // Cannot move root
+        if (nodeId === 'root') return false;
+
+        // Cannot move to its own descendant (would create circular reference)
+        if (isDescendant(nodeId, targetParentId)) return false;
+
+        return true;
+    }
+
+    function moveNodeToParent(nodeId: string, newParentId: string) {
+        if (!canMoveNode(nodeId, newParentId)) {
+            console.warn('Cannot move node:', nodeId, 'to', newParentId);
+            return;
+        }
+
+        const node = findNode(nodeId);
+        const newParent = findNode(newParentId);
+
+        if (!node || !newParent) return;
+
+        // Remove from old parent
+        if (node.parentId) {
+            const oldParent = findNode(node.parentId);
+            if (oldParent) {
+                oldParent.children = oldParent.children.filter(child => child.id !== nodeId);
+            }
+        }
+
+        // Add to new parent
+        node.parentId = newParentId;
+        newParent.children.push(node);
+
+        // Expand new parent if collapsed
+        if (newParent.isCollapsed) {
+            newParent.isCollapsed = false;
+        }
+    }
+
+    function reorderNode(nodeId: string, targetSiblingId: string, insertBefore: boolean) {
+        const node = findNode(nodeId);
+        const targetSibling = findNode(targetSiblingId);
+
+        if (!node || !targetSibling) return;
+        if (nodeId === targetSiblingId) return;
+
+        // Cannot reorder root
+        if (nodeId === 'root') return;
+
+        // If target is root, move as first/last child of root instead
+        if (targetSiblingId === 'root') {
+            if (!node.parentId) return;
+
+            // Remove from old parent
+            const oldParent = findNode(node.parentId);
+            if (oldParent) {
+                oldParent.children = oldParent.children.filter(child => child.id !== nodeId);
+            }
+
+            // Add to root
+            node.parentId = 'root';
+            if (insertBefore) {
+                root.value.children.unshift(node);
+            } else {
+                root.value.children.push(node);
+            }
+            return;
+        }
+
+        // If they have different parents, move to target's parent first
+        if (node.parentId !== targetSibling.parentId) {
+            if (!targetSibling.parentId) return;
+
+            // Remove from old parent
+            if (node.parentId) {
+                const oldParent = findNode(node.parentId);
+                if (oldParent) {
+                    oldParent.children = oldParent.children.filter(child => child.id !== nodeId);
+                }
+            }
+
+            // Update parent reference
+            node.parentId = targetSibling.parentId;
+        }
+
+        const parent = findNode(node.parentId!);
+        if (!parent) return;
+
+        // Remove node from current position in children array (if it's already there)
+        parent.children = parent.children.filter(child => child.id !== nodeId);
+
+        // Find target index and insert
+        const targetIndex = parent.children.findIndex(child => child.id === targetSiblingId);
+        if (targetIndex === -1) {
+            // Target not found, just add at end
+            parent.children.push(node);
+            return;
+        }
+
+        const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+        parent.children.splice(insertIndex, 0, node);
+    }
+
     return {
         root,
         selectedNodeId,
@@ -246,5 +372,12 @@ export const useMindMapStore = defineStore('mindmap', () => {
         addMarkerToNodes,
         removeMarkerGroupFromNodes,
         getNodeMarkers,
+        // Drag and Drop
+        draggingNodeId,
+        dragOverNodeId,
+        isDescendant,
+        canMoveNode,
+        moveNodeToParent,
+        reorderNode,
     };
 });
