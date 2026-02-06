@@ -18,6 +18,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
     // Drag and Drop state
     const draggingNodeId = ref<string | null>(null);
     const dragOverNodeId = ref<string | null>(null);
+    const touchDropZone = ref<'top' | 'middle' | 'bottom' | null>(null);
 
     // Computed for backward compatibility (returns the most recently selected one)
     const selectedNodeId = computed(() => {
@@ -375,6 +376,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         // Drag and Drop
         draggingNodeId,
         dragOverNodeId,
+        touchDropZone,
         isDescendant,
         canMoveNode,
         moveNodeToParent,

@@ -90,6 +90,19 @@ watch(() => store.dragOverNodeId, (newVal) => {
     isDragOver.value = false;
     dropZone.value = null;
   }
+  
+  // If this node is being dragged over (for touch), show visual feedback
+  if (newVal === props.node.id) {
+    isDragOver.value = true;
+    dropZone.value = store.touchDropZone;
+  }
+});
+
+// Watch touchDropZone to update visual feedback during touch drag
+watch(() => store.touchDropZone, (newVal) => {
+  if (store.dragOverNodeId === props.node.id) {
+    dropZone.value = newVal;
+  }
 });
 
 function selectNode(e: MouseEvent) {
@@ -196,6 +209,196 @@ function closeMarkerMenu() {
   selectedMarkerGroupId.value = null;
 }
 
+// ===== Touch Event Handlers =====
+const touchStartTime = ref(0);
+const touchStartPos = ref({ x: 0, y: 0 });
+const longPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const isLongPressing = ref(false);
+const isTouchDragging = ref(false);
+const lastDoubleTapTime = ref(0);
+const markerLongPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+const LONG_PRESS_DURATION = 300; // ms
+const DOUBLE_TAP_DELAY = 300; // ms
+const DRAG_THRESHOLD = 10; // pixels
+
+function onNodeTouchStart(e: TouchEvent) {
+  if (isEditing.value) return;
+  
+  // Allow 2-finger gestures to propagate to container for pinch zoom
+  if (e.touches.length >= 2) {
+    return; // Let container handle pinch zoom
+  }
+  
+  const touch = e.touches[0];
+  if (!touch) return;
+  
+  e.stopPropagation();
+  
+  touchStartTime.value = Date.now();
+  touchStartPos.value = { x: touch.clientX, y: touch.clientY };
+  isLongPressing.value = false;
+  isTouchDragging.value = false;
+  
+  // Start long press timer
+  longPressTimer.value = setTimeout(() => {
+    isLongPressing.value = true;
+    isTouchDragging.value = true;
+    store.draggingNodeId = props.node.id;
+    
+    // Visual feedback
+    if (nodeRef.value) {
+      nodeRef.value.style.opacity = '0.5';
+    }
+  }, LONG_PRESS_DURATION);
+}
+
+function onNodeTouchMove(e: TouchEvent) {
+  // Allow 2-finger gestures to propagate to container for pinch zoom
+  if (e.touches.length >= 2) {
+    // Cancel long press if we switched to 2 fingers
+    if (longPressTimer.value) {
+      clearTimeout(longPressTimer.value);
+      longPressTimer.value = null;
+    }
+    return; // Let container handle pinch zoom
+  }
+  
+  const touch = e.touches[0];
+  if (!touch) return;
+  
+  const dx = touch.clientX - touchStartPos.value.x;
+  const dy = touch.clientY - touchStartPos.value.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  // If moved beyond threshold before long press, cancel it
+  if (distance > DRAG_THRESHOLD && !isLongPressing.value) {
+    if (longPressTimer.value) {
+      clearTimeout(longPressTimer.value);
+      longPressTimer.value = null;
+    }
+    return;
+  }
+  
+  // If long pressing and dragging, handle drop zone detection
+  if (isTouchDragging.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Find element under touch point
+    const elemUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+    const nodeUnder = elemUnder?.closest('.mind-map-node') as HTMLElement | null;
+    
+    if (nodeUnder && nodeUnder !== nodeRef.value) {
+      const targetId = nodeUnder.getAttribute('data-node-id');
+      if (targetId && targetId !== props.node.id && store.canMoveNode(props.node.id, targetId)) {
+        store.dragOverNodeId = targetId;
+        
+        // Calculate drop zone based on touch position relative to target node
+        const rect = nodeUnder.getBoundingClientRect();
+        const y = touch.clientY - rect.top;
+        const height = rect.height;
+        
+        if (y < height * 0.25) {
+          store.touchDropZone = 'top';
+        } else if (y > height * 0.75) {
+          store.touchDropZone = 'bottom';
+        } else {
+          store.touchDropZone = 'middle';
+        }
+      }
+    } else {
+      store.dragOverNodeId = null;
+      store.touchDropZone = null;
+    }
+  }
+}
+
+function onNodeTouchEnd() {
+  // Clear timers
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value);
+    longPressTimer.value = null;
+  }
+  
+  const touchDuration = Date.now() - touchStartTime.value;
+  const now = Date.now();
+  
+  // Restore opacity
+  if (nodeRef.value) {
+    nodeRef.value.style.opacity = '1';
+  }
+  
+  // Handle long press drag end
+  if (isTouchDragging.value) {
+    const targetId = store.dragOverNodeId;
+    const currentDropZone = store.touchDropZone;
+    
+    if (targetId && targetId !== props.node.id) {
+      // Handle the drop based on drop zone
+      if (currentDropZone === 'middle') {
+        store.moveNodeToParent(props.node.id, targetId);
+      } else if (currentDropZone === 'top') {
+        store.reorderNode(props.node.id, targetId, true);
+      } else if (currentDropZone === 'bottom') {
+        store.reorderNode(props.node.id, targetId, false);
+      }
+    }
+    
+    store.draggingNodeId = null;
+    store.dragOverNodeId = null;
+    store.touchDropZone = null;
+    isTouchDragging.value = false;
+    isLongPressing.value = false;
+    return;
+  }
+  
+  // Handle tap vs double tap (only if it was a quick tap)
+  if (touchDuration < LONG_PRESS_DURATION && !isLongPressing.value) {
+    if (now - lastDoubleTapTime.value < DOUBLE_TAP_DELAY) {
+      // Double tap -> edit
+      lastDoubleTapTime.value = 0;
+      startEditing();
+    } else {
+      // Single tap -> select
+      lastDoubleTapTime.value = now;
+      store.selectNode(props.node.id, false);
+    }
+  }
+  
+  isLongPressing.value = false;
+  isTouchDragging.value = false;
+}
+
+function onMarkerTouchStart(e: TouchEvent, groupId: string) {
+  const touch = e.touches[0];
+  if (!touch) return;
+  
+  e.stopPropagation();
+  
+  // Start long press timer for marker menu
+  markerLongPressTimer.value = setTimeout(() => {
+    selectedMarkerGroupId.value = groupId;
+    markerMenuPosition.value = { x: touch.clientX, y: touch.clientY };
+    showMarkerMenu.value = true;
+  }, LONG_PRESS_DURATION);
+}
+
+function onMarkerTouchEnd() {
+  if (markerLongPressTimer.value) {
+    clearTimeout(markerLongPressTimer.value);
+    markerLongPressTimer.value = null;
+  }
+}
+
+function onMarkerTouchMove() {
+  // Cancel long press if moved
+  if (markerLongPressTimer.value) {
+    clearTimeout(markerLongPressTimer.value);
+    markerLongPressTimer.value = null;
+  }
+}
+
 // Close menu on click outside
 onMounted(() => {
   document.addEventListener('click', closeMarkerMenu);
@@ -203,6 +406,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMarkerMenu);
+  if (longPressTimer.value) clearTimeout(longPressTimer.value);
+  if (markerLongPressTimer.value) clearTimeout(markerLongPressTimer.value);
 });
 
 // Drag and Drop handlers
@@ -328,6 +533,7 @@ function onDrop(e: DragEvent) {
     ref="nodeRef"
     tabindex="0"
     draggable="true"
+    :data-node-id="node.id"
     @click="selectNode"
     @dblclick="startEditing"
     @keydown="onKeyDown"
@@ -336,6 +542,9 @@ function onDrop(e: DragEvent) {
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
+    @touchstart="onNodeTouchStart"
+    @touchmove="onNodeTouchMove"
+    @touchend="onNodeTouchEnd"
     :class="{ 
       selected: isSelected,
       'drag-over': isDragOver,
@@ -355,6 +564,9 @@ function onDrop(e: DragEvent) {
           :style="{ backgroundColor: marker.color }"
           :title="marker.label"
           @contextmenu="onMarkerRightClick($event, marker.groupId)"
+          @touchstart="onMarkerTouchStart($event, marker.groupId)"
+          @touchmove="onMarkerTouchMove"
+          @touchend="onMarkerTouchEnd"
         >
           <span v-if="marker.icon" class="marker-text">{{ marker.icon }}</span>
         </span>

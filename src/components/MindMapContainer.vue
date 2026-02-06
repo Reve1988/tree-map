@@ -229,6 +229,122 @@ function onContextMenu(e: Event) {
     e.preventDefault();
 }
 
+// ===== Touch Event Handlers =====
+const lastTouchPos = ref({ x: 0, y: 0 });
+const lastPinchDistance = ref(0);
+const isTouchPanning = ref(false);
+
+function getTouchDistance(touches: TouchList): number {
+  if (touches.length < 2) return 0;
+  const t0 = touches[0];
+  const t1 = touches[1];
+  if (!t0 || !t1) return 0;
+  const dx = t0.clientX - t1.clientX;
+  const dy = t0.clientY - t1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getTouchCenter(touches: TouchList): { x: number; y: number } {
+  const t0 = touches[0];
+  if (!t0) return { x: 0, y: 0 };
+  
+  if (touches.length === 1) {
+    return { x: t0.clientX, y: t0.clientY };
+  }
+  const t1 = touches[1];
+  if (!t1) return { x: t0.clientX, y: t0.clientY };
+  
+  return {
+    x: (t0.clientX + t1.clientX) / 2,
+    y: (t0.clientY + t1.clientY) / 2,
+  };
+}
+
+function onTouchStart(e: TouchEvent) {
+  // Ignore if touching toolbar or node
+  if ((e.target as HTMLElement).closest('.toolbar')) return;
+  if ((e.target as HTMLElement).closest('.mind-map-node')) return;
+  
+  const t0 = e.touches[0];
+  if (!t0) return;
+  
+  if (e.touches.length === 1) {
+    // Single finger: start panning
+    isTouchPanning.value = true;
+    lastTouchPos.value = { x: t0.clientX, y: t0.clientY };
+    store.clearSelection();
+  } else if (e.touches.length === 2) {
+    // Two fingers: start pinch zoom
+    isTouchPanning.value = false;
+    lastPinchDistance.value = getTouchDistance(e.touches);
+    lastTouchPos.value = getTouchCenter(e.touches);
+  }
+}
+
+function onTouchMove(e: TouchEvent) {
+  e.preventDefault();
+  
+  const t0 = e.touches[0];
+  if (!t0) return;
+  
+  if (e.touches.length === 1 && isTouchPanning.value) {
+    // Single finger panning
+    const dx = t0.clientX - lastTouchPos.value.x;
+    const dy = t0.clientY - lastTouchPos.value.y;
+    transform.value.x += dx;
+    transform.value.y += dy;
+    lastTouchPos.value = { x: t0.clientX, y: t0.clientY };
+  } else if (e.touches.length >= 2) {
+    // Stop panning when switching to 2 fingers
+    isTouchPanning.value = false;
+    
+    // Pinch zoom
+    const currentDistance = getTouchDistance(e.touches);
+    const currentCenter = getTouchCenter(e.touches);
+    
+    // Initialize pinch distance if this is the first 2-finger touch
+    if (lastPinchDistance.value === 0) {
+      lastPinchDistance.value = currentDistance;
+      lastTouchPos.value = currentCenter;
+      return;
+    }
+    
+    // Apply zoom (only if distance changed significantly)
+    if (currentDistance > 0 && lastPinchDistance.value > 0) {
+      const scale = currentDistance / lastPinchDistance.value;
+      if (Math.abs(scale - 1) > 0.01) { // Threshold to avoid jitter
+        let newZoom = transform.value.k * scale;
+        newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+        transform.value.k = newZoom;
+      }
+    }
+    
+    // Also pan with two fingers
+    const dx = currentCenter.x - lastTouchPos.value.x;
+    const dy = currentCenter.y - lastTouchPos.value.y;
+    transform.value.x += dx;
+    transform.value.y += dy;
+    
+    lastPinchDistance.value = currentDistance;
+    lastTouchPos.value = currentCenter;
+  }
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (e.touches.length === 0) {
+    isTouchPanning.value = false;
+    lastPinchDistance.value = 0;
+  } else if (e.touches.length === 1) {
+    // Switched from 2 to 1 finger
+    const t0 = e.touches[0];
+    if (t0) {
+      lastTouchPos.value = { x: t0.clientX, y: t0.clientY };
+      isTouchPanning.value = true;
+    }
+  }
+}
+
+
 </script>
 
 <template>
@@ -241,6 +357,9 @@ function onContextMenu(e: Event) {
     @mouseleave="onMouseUp"
     @wheel="onWheel"
     @contextmenu="onContextMenu"
+    @touchstart="onTouchStart"
+    @touchmove.prevent="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <Toolbar />
     <div 
@@ -293,14 +412,9 @@ function onContextMenu(e: Event) {
   overflow: hidden;
   background-color: var(--bg-color);
   color: var(--text-color);
-  cursor: default; /* Changed from grab since left click is select */
-  user-select: none; /* Prevent text selection during drag */
-}
-
-/* Add grabbing cursor only when panning */
-.mindmap-container:active {
-  /* Cursor handling via JS class or just relies on button state logic visual? */
-  /* We can't easily detect right-click active via pure CSS efficiently without specific classes */
+  cursor: default;
+  user-select: none;
+  touch-action: none; /* Prevent browser handling of touch gestures */
 }
 
 .mindmap-canvas {
