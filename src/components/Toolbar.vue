@@ -107,8 +107,7 @@ function resetMap() {
 }
 
 function confirmReset() {
-    store.reset();
-    showResetModal.value = false;
+    window.location.reload();
 }
 
 function cancelReset() {
