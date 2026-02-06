@@ -336,12 +336,13 @@ function onNodeTouchEnd() {
     
     if (targetId && targetId !== props.node.id) {
       // Handle the drop based on drop zone
+      // Use multi-node functions to move all selected nodes together
       if (currentDropZone === 'middle') {
-        store.moveNodeToParent(props.node.id, targetId);
+        store.moveSelectedNodesToParent(props.node.id, targetId);
       } else if (currentDropZone === 'top') {
-        store.reorderNode(props.node.id, targetId, true);
+        store.reorderSelectedNodes(props.node.id, targetId, true);
       } else if (currentDropZone === 'bottom') {
-        store.reorderNode(props.node.id, targetId, false);
+        store.reorderSelectedNodes(props.node.id, targetId, false);
       }
     }
     
@@ -510,15 +511,16 @@ function onDrop(e: DragEvent) {
   }
   
   // Handle the drop based on drop zone
+  // Use multi-node functions to move all selected nodes together
   if (dropZone.value === 'middle') {
-    // Drop in the middle: make it a child
-    store.moveNodeToParent(draggedNodeId, props.node.id);
+    // Drop in the middle: make them children
+    store.moveSelectedNodesToParent(draggedNodeId, props.node.id);
   } else if (dropZone.value === 'top') {
-    // Drop on top: insert before this node (as sibling)
-    store.reorderNode(draggedNodeId, props.node.id, true);
+    // Drop on top: insert before this node (as siblings)
+    store.reorderSelectedNodes(draggedNodeId, props.node.id, true);
   } else if (dropZone.value === 'bottom') {
-    // Drop on bottom: insert after this node (as sibling)
-    store.reorderNode(draggedNodeId, props.node.id, false);
+    // Drop on bottom: insert after this node (as siblings)
+    store.reorderSelectedNodes(draggedNodeId, props.node.id, false);
   }
   
   isDragOver.value = false;

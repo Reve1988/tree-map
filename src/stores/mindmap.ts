@@ -293,6 +293,65 @@ export const useMindMapStore = defineStore('mindmap', () => {
         }
     }
 
+    // Move all selected nodes to a new parent
+    function moveSelectedNodesToParent(draggedNodeId: string, newParentId: string) {
+        // Get all selected nodes, but filter out nodes that are descendants of other selected nodes
+        // to avoid moving a parent and then trying to move its children separately
+        const selectedIds = Array.from(selectedNodeIds.value);
+
+        // If dragged node is not in selection, just move it alone
+        if (!selectedIds.includes(draggedNodeId)) {
+            moveNodeToParent(draggedNodeId, newParentId);
+            return;
+        }
+
+        // Filter out nodes that are descendants of other selected nodes
+        const nodesToMove = selectedIds.filter(id => {
+            // Can't move target to itself
+            if (id === newParentId) return false;
+            // Check if any other selected node is an ancestor of this one
+            return !selectedIds.some(otherId => otherId !== id && isDescendant(id, otherId));
+        });
+
+        // Move each node
+        for (const nodeId of nodesToMove) {
+            if (canMoveNode(nodeId, newParentId)) {
+                moveNodeToParent(nodeId, newParentId);
+            }
+        }
+    }
+
+    // Reorder all selected nodes relative to target
+    function reorderSelectedNodes(draggedNodeId: string, targetSiblingId: string, insertBefore: boolean) {
+        const selectedIds = Array.from(selectedNodeIds.value);
+
+        // If dragged node is not in selection, just reorder it alone
+        if (!selectedIds.includes(draggedNodeId)) {
+            reorderNode(draggedNodeId, targetSiblingId, insertBefore);
+            return;
+        }
+
+        // Filter out nodes that are descendants of other selected nodes
+        // and filter out the target sibling itself
+        const nodesToReorder = selectedIds.filter(id => {
+            if (id === targetSiblingId) return false;
+            return !selectedIds.some(otherId => otherId !== id && isDescendant(id, otherId));
+        });
+
+        // Reorder each node, adjusting insertion point after each
+        let currentTarget = targetSiblingId;
+        for (const nodeId of nodesToReorder) {
+            reorderNode(nodeId, currentTarget, insertBefore);
+            // After first insertion, subsequent nodes should go after the first
+            if (insertBefore) {
+                currentTarget = nodeId;
+                insertBefore = false;
+            } else {
+                currentTarget = nodeId;
+            }
+        }
+    }
+
     function reorderNode(nodeId: string, targetSiblingId: string, insertBefore: boolean) {
         const node = findNode(nodeId);
         const targetSibling = findNode(targetSiblingId);
@@ -385,6 +444,8 @@ export const useMindMapStore = defineStore('mindmap', () => {
         isDescendant,
         canMoveNode,
         moveNodeToParent,
+        moveSelectedNodesToParent,
         reorderNode,
+        reorderSelectedNodes,
     };
 });
