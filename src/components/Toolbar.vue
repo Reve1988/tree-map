@@ -8,16 +8,11 @@ const toolbarRef = ref<HTMLElement | null>(null);
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 const themeMode = ref<ThemeMode>('auto');
+const showThemePicker = ref(false);
 
-function toggleTheme() {
-  // Cycle through: light -> dark -> auto -> light
-  if (themeMode.value === 'light') {
-    themeMode.value = 'dark';
-  } else if (themeMode.value === 'dark') {
-    themeMode.value = 'auto';
-  } else {
-    themeMode.value = 'light';
-  }
+function selectTheme(mode: ThemeMode) {
+  themeMode.value = mode;
+  showThemePicker.value = false;
   updateTheme();
 }
 
@@ -113,16 +108,6 @@ function resetMap() {
     }
 }
 
-function getThemeTooltip() {
-  if (themeMode.value === 'light') {
-    return '다크 모드로 전환';
-  } else if (themeMode.value === 'dark') {
-    return '시스템 설정으로 전환';
-  } else {
-    return '라이트 모드로 전환';
-  }
-}
-
 // Marker picker state
 const showMarkerPicker = ref(false);
 const hasSelection = computed(() => store.selectedNodeIds.size > 0);
@@ -166,15 +151,65 @@ const emit = defineEmits<{
         </svg>
       </button>
     </div>
-    <button @click="resetMap">초기화</button>
-    <button @click="exportData">저장</button>
-    <label class="file-btn">
-      불러오기
+    <button @click="resetMap" title="새 파일">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+    </button>
+    <button @click="exportData" title="다운로드">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </button>
+    <label class="file-btn" title="업로드">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
       <input type="file" accept=".json" @change="importData" hidden />
     </label>
-    <button @click="toggleTheme" class="theme-toggle" :title="getThemeTooltip()">
-      <!-- Sun icon for light mode -->
-      <svg v-if="themeMode === 'light'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Theme Picker -->
+    <div class="theme-picker-container">
+      <button @click="showThemePicker = !showThemePicker" class="theme-toggle" title="테마 선택">
+        <!-- Sun icon for light mode -->
+        <svg v-if="themeMode === 'light'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <!-- Moon icon for dark mode -->
+        <svg v-else-if="themeMode === 'dark'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <!-- Auto icon (monitor) for system sync -->
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- Marker Picker below toolbar -->
+    <MarkerPicker :show="showMarkerPicker" @selectMarker="handleMarkerSelect" />
+  </div>
+  
+  <!-- Theme Dropdown (same level as toolbar) -->
+  <div v-if="showThemePicker" class="theme-dropdown">
+    <button @click="selectTheme('light')" :class="{ active: themeMode === 'light' }" title="라이트 모드">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="5"/>
         <line x1="12" y1="1" x2="12" y2="3"/>
         <line x1="12" y1="21" x2="12" y2="23"/>
@@ -185,20 +220,19 @@ const emit = defineEmits<{
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
-      <!-- Moon icon for dark mode -->
-      <svg v-else-if="themeMode === 'dark'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    </button>
+    <button @click="selectTheme('dark')" :class="{ active: themeMode === 'dark' }" title="다크 모드">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
-      <!-- Auto icon (monitor) for system sync -->
-      <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    </button>
+    <button @click="selectTheme('auto')" :class="{ active: themeMode === 'auto' }" title="시스템 설정">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
         <line x1="8" y1="21" x2="16" y2="21"/>
         <line x1="12" y1="17" x2="12" y2="21"/>
       </svg>
     </button>
-    
-    <!-- Marker Picker below toolbar -->
-    <MarkerPicker :show="showMarkerPicker" @selectMarker="handleMarkerSelect" />
   </div>
 </template>
 
@@ -217,7 +251,7 @@ const emit = defineEmits<{
 }
 
 button, .file-btn {
-  padding: 6px 12px;
+  padding: 6px 8px;
   background: var(--button-bg);
   color: var(--text-color);
   border: 1px solid var(--border-color);
@@ -226,6 +260,12 @@ button, .file-btn {
   font-size: 14px;
   font-family: inherit;
   transition: background 0.3s;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .theme-toggle {
@@ -256,5 +296,31 @@ button:hover, .file-btn:hover {
 
 .marker-btn.disabled:hover {
   background: var(--button-bg);
+}
+
+.theme-picker-container {
+  position: relative;
+  display: flex;
+}
+
+.theme-dropdown {
+  position: fixed;
+  top: 70px;
+  right: 10px;
+  background: var(--toolbar-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.theme-dropdown button {
+  border: none;
+}
+
+.theme-dropdown button.active {
+  background: var(--button-hover);
 }
 </style>
