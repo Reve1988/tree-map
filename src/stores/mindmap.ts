@@ -20,6 +20,9 @@ export const useMindMapStore = defineStore('mindmap', () => {
     const dragOverNodeId = ref<string | null>(null);
     const touchDropZone = ref<'top' | 'middle' | 'bottom' | null>(null);
 
+    // Track newly added node for centering
+    const newlyAddedNodeId = ref<string | null>(null);
+
     // Computed for backward compatibility (returns the most recently selected one)
     const selectedNodeId = computed(() => {
         if (selectedNodeIds.value.size === 0) return null;
@@ -54,6 +57,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
                 parentId: parentId,
             };
             parent.children.push(newNode);
+            newlyAddedNodeId.value = newNode.id;
             selectNode(newNode.id); // Default single select new node
         }
     }
@@ -377,6 +381,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         draggingNodeId,
         dragOverNodeId,
         touchDropZone,
+        newlyAddedNodeId,
         isDescendant,
         canMoveNode,
         moveNodeToParent,

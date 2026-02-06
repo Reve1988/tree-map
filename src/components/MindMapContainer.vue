@@ -73,10 +73,12 @@ function centerRoot() {
     centerNode('root');
 }
 
-watch(() => store.selectedNodeId, (newId) => {
+// Center only when a new node is added (not on selection)
+watch(() => store.newlyAddedNodeId, (newId) => {
     if (newId) {
         nextTick(() => {
              centerNode(newId);
+             store.newlyAddedNodeId = null; // Clear after centering
         });
     }
 });
