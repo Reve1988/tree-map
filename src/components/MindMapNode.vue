@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import type { MindMapNode } from '../types/mindmap';
 import { useMindMapStore } from '../stores/mindmap';
 import { getMarkerById } from '../types/markers';
+
+// Detect touch device
+const isTouchDevice = useMediaQuery('(pointer: coarse)');
 
 const props = defineProps<{
   node: MindMapNode;
@@ -614,10 +618,33 @@ function onDrop(e: DragEvent) {
       v-if="node.children.length > 0" 
       class="toggle-btn"
       @click.stop="store.toggleCollapse(node.id)"
+      @touchend.stop.prevent="store.toggleCollapse(node.id)"
       @mousedown.stop
     >
       {{ node.isCollapsed ? '+' : '-' }}
     </button>
+
+    <!-- Mobile action buttons (touch devices only) -->
+    <template v-if="isTouchDevice && isSelected && !isEditing">
+      <!-- Add child -->
+      <button 
+        class="mobile-action-btn mobile-action-right"
+        @click.stop="store.addChild(node.id)"
+        @touchstart.stop
+        @touchend.stop.prevent="store.addChild(node.id)"
+        title="자식 노드 추가"
+      >+</button>
+      
+      <!-- Add sibling below -->
+      <button 
+        v-if="node.id !== 'root'"
+        class="mobile-action-btn mobile-action-bottom"
+        @click.stop="store.addSibling(node.id)"
+        @touchstart.stop
+        @touchend.stop.prevent="store.addSibling(node.id)"
+        title="형제 노드 추가"
+      >+</button>
+    </template>
 
   </div>
   
@@ -842,6 +869,49 @@ button {
 
 .node-context-menu .delete-item:hover {
   background: rgba(244, 67, 54, 0.1);
+}
+
+/* Mobile action buttons */
+.mobile-action-btn {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #646cff;
+  background: var(--node-bg, white);
+  color: #646cff;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 15;
+  touch-action: manipulation;
+}
+
+.mobile-action-btn:active {
+  background: #646cff;
+  color: white;
+}
+
+.mobile-action-top {
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mobile-action-right {
+  right: -10px;
+  top: 50%;
+  transform: translate(100%, -50%);
+}
+
+.mobile-action-bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 100%);
 }
 
 </style>
