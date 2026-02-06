@@ -23,6 +23,13 @@ export const useMindMapStore = defineStore('mindmap', () => {
     // Track newly added node for centering
     const newlyAddedNodeId = ref<string | null>(null);
 
+    // Node context menu (global state)
+    const nodeContextMenu = ref<{
+        nodeId: string | null;
+        x: number;
+        y: number;
+    }>({ nodeId: null, x: 0, y: 0 });
+
     // Computed for backward compatibility (returns the most recently selected one)
     const selectedNodeId = computed(() => {
         if (selectedNodeIds.value.size === 0) return null;
@@ -441,6 +448,7 @@ export const useMindMapStore = defineStore('mindmap', () => {
         dragOverNodeId,
         touchDropZone,
         newlyAddedNodeId,
+        nodeContextMenu,
         isDescendant,
         canMoveNode,
         moveNodeToParent,

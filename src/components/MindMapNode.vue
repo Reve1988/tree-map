@@ -24,6 +24,8 @@ const showMarkerMenu = ref(false);
 const markerMenuPosition = ref({ x: 0, y: 0 });
 const selectedMarkerGroupId = ref<string | null>(null);
 
+// Node context menu uses store.nodeContextMenu for global state
+
 const isSelected = computed(() => store.isNodeSelected(props.node.id));
 
 const nodeMarkers = computed(() => {
@@ -107,7 +109,10 @@ watch(() => store.touchDropZone, (newVal) => {
 
 function selectNode(e: MouseEvent) {
    // Prevent bubbling so container doesn't deselect
-   e.stopPropagation(); 
+   e.stopPropagation();
+   // Close any open menus
+   closeNodeMenu();
+   closeMarkerMenu();
    const multiSelect = e.ctrlKey || e.metaKey || e.shiftKey;
    store.selectNode(props.node.id, multiSelect);
 }
@@ -207,6 +212,25 @@ function deleteMarker() {
 function closeMarkerMenu() {
   showMarkerMenu.value = false;
   selectedMarkerGroupId.value = null;
+}
+
+// Node context menu handlers
+function onNodeRightClick(e: MouseEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  store.nodeContextMenu = { nodeId: props.node.id, x: e.clientX, y: e.clientY };
+}
+
+function closeNodeMenu() {
+  store.nodeContextMenu = { nodeId: null, x: 0, y: 0 };
+}
+
+function deleteNodeFromMenu() {
+  if (props.node.id !== 'root') {
+    store.deleteNode(props.node.id);
+  }
+  closeNodeMenu();
 }
 
 // ===== Touch Event Handlers =====
@@ -400,13 +424,15 @@ function onMarkerTouchMove() {
   }
 }
 
-// Close menu on click outside
+// Close menus on click outside
 onMounted(() => {
   document.addEventListener('click', closeMarkerMenu);
+  document.addEventListener('click', closeNodeMenu);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMarkerMenu);
+  document.removeEventListener('click', closeNodeMenu);
   if (longPressTimer.value) clearTimeout(longPressTimer.value);
   if (markerLongPressTimer.value) clearTimeout(markerLongPressTimer.value);
 });
@@ -547,6 +573,7 @@ function onDrop(e: DragEvent) {
     @touchstart="onNodeTouchStart"
     @touchmove="onNodeTouchMove"
     @touchend="onNodeTouchEnd"
+    @contextmenu="onNodeRightClick"
     :class="{ 
       selected: isSelected,
       'drag-over': isDragOver,
@@ -603,6 +630,19 @@ function onDrop(e: DragEvent) {
       @click.stop
     >
       <button @click="deleteMarker" class="menu-item">마커 삭제</button>
+    </div>
+  </Teleport>
+  
+  <!-- Node Context Menu (teleported to body) -->
+  <Teleport to="body">
+    <div 
+      v-if="store.nodeContextMenu.nodeId === node.id" 
+      class="node-context-menu"
+      :style="{ left: `${store.nodeContextMenu.x}px`, top: `${store.nodeContextMenu.y}px` }"
+      @click.stop
+    >
+      <button v-if="node.id !== 'root'" @click="deleteNodeFromMenu" class="menu-item delete-item">노드 삭제</button>
+      <button v-else @click="closeNodeMenu" class="menu-item" disabled>루트 노드는 삭제할 수 없습니다</button>
     </div>
   </Teleport>
 </template>
@@ -761,6 +801,47 @@ button {
   outline: 2px solid #646cff;
   outline-offset: 2px;
   background-color: rgba(100, 108, 255, 0.1);
+}
+
+/* Node Context Menu */
+.node-context-menu {
+  position: fixed;
+  background: var(--node-bg, white);
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.node-context-menu .menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-color, #333);
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.node-context-menu .menu-item:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.node-context-menu .menu-item:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.node-context-menu .delete-item {
+  color: #f44336;
+}
+
+.node-context-menu .delete-item:hover {
+  background: rgba(244, 67, 54, 0.1);
 }
 
 </style>
