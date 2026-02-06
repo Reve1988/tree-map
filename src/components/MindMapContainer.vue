@@ -402,7 +402,7 @@ function onTouchEnd(e: TouchEvent) {
       :max-zoom="MAX_ZOOM"
       @zoom-in="zoomIn"
       @zoom-out="zoomOut"
-      @reset-zoom="resetZoom"
+      @reset-zoom="() => { resetZoom(); centerRoot(); }"
     />
   </div>
 </template>
