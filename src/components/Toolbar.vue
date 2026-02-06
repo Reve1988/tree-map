@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useMindMapStore } from '../stores/mindmap';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import MarkerPicker from './MarkerPicker.vue';
 
 const store = useMindMapStore();
@@ -92,6 +92,10 @@ function importData(event: Event) {
       // Basic validation: check if it has children array
       if (data && Array.isArray(data.children)) {
           store.root = data;
+          // Center on root node after data is loaded
+          nextTick(() => {
+            emit('centerOnRoot');
+          });
       } else {
         alert('Invalid MindMap JSON');
       }
@@ -140,6 +144,7 @@ function handleMarkerSelect(groupId: string, markerId: string) {
 
 const emit = defineEmits<{
   (e: 'convert'): void
+  (e: 'centerOnRoot'): void
 }>();
 </script>
 

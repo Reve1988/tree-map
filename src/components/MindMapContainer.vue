@@ -363,7 +363,7 @@ function onTouchEnd(e: TouchEvent) {
     @touchmove.prevent="onTouchMove"
     @touchend="onTouchEnd"
   >
-    <Toolbar />
+    <Toolbar @center-on-root="centerNode('root')" />
     <div 
       class="mindmap-canvas" 
       :style="{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})` }"
