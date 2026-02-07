@@ -366,7 +366,7 @@ function onTouchEnd(e: TouchEvent) {
     @touchmove.prevent="onTouchMove"
     @touchend="onTouchEnd"
   >
-    <Toolbar @center-on-root="centerNode('root')" />
+    <Toolbar @center-on-root="centerNode('root')" @navigate-to-node="(id: string) => centerNode(id)" />
     <div 
       class="mindmap-canvas" 
       :style="{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})` }"
