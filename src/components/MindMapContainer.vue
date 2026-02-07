@@ -404,6 +404,9 @@ function onTouchEnd(e: TouchEvent) {
       @zoom-out="zoomOut"
       @reset-zoom="() => { resetZoom(); centerRoot(); }"
     />
+    
+    <!-- Version Label -->
+    <div class="version-label">v0.0.1-beta1</div>
   </div>
 </template>
 
@@ -445,5 +448,17 @@ function onTouchEnd(e: TouchEvent) {
     background-color: var(--selection-bg);
     pointer-events: none;
     z-index: 1000;
+}
+
+.version-label {
+  position: fixed;
+  bottom: 8px;
+  left: 12px;
+  font-size: 20px;
+  color: var(--text-color);
+  opacity: 0.3;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
 }
 </style>
