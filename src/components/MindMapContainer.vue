@@ -11,6 +11,9 @@ import type { MindMapNode } from '../types/mindmap';
 const store = useMindMapStore();
 const { calculateTreeLayout } = useMindMapLayout();
 
+declare const __APP_VERSION__: string;
+const appVersion = __APP_VERSION__;
+
 const transform = ref({ x: 0, y: 0, k: 1 });
 const isPanning = ref(false);
 const isSelecting = ref(false);
@@ -406,7 +409,7 @@ function onTouchEnd(e: TouchEvent) {
     />
     
     <!-- Version Label -->
-    <div class="version-label">v0.0.1-beta1</div>
+    <div class="version-label">v{{ appVersion }}</div>
   </div>
 </template>
 

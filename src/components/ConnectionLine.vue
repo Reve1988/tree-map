@@ -18,11 +18,15 @@ const parent = computed(() => {
 const path = computed(() => {
   if (!parent.value) return '';
   
-  const startX = parent.value.x + 150; // Parent Right (Width is 150)
-  const startY = parent.value.y + 20;  // Parent Center Y (Height is 40)
+  const parentW = parent.value.width || 150;
+  const parentH = parent.value.height || 40;
+  const childH = props.node.height || 40;
+
+  const startX = parent.value.x + parentW; // Parent Right
+  const startY = parent.value.y + parentH / 2;  // Parent Center Y
   
   const endX = props.node.x; // Child Left
-  const endY = props.node.y + 20; // Child Center Y
+  const endY = props.node.y + childH / 2; // Child Center Y
   
   // Cubic Bezier
   const c1x = (startX + endX) / 2;
