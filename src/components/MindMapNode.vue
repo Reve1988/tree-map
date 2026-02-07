@@ -164,7 +164,10 @@ function updateText(e: Event) {
 
 function onKeyDown(e: KeyboardEvent) {
   if (isEditing.value) {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && e.shiftKey) {
+          // Shift+Enter: allow line break (default contenteditable behavior)
+          return;
+      } else if (e.key === 'Enter') {
           e.preventDefault();
           (e.target as HTMLElement).blur(); // Just exit edit mode
           // Do not add sibling here
