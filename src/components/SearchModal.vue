@@ -105,6 +105,7 @@ function getNodePath(node: MindMapNode): string {
             type="text"
             placeholder="노드 검색..."
             class="search-input"
+            autocomplete="off"
           />
         </div>
         <div class="search-results">

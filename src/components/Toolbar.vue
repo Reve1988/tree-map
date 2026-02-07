@@ -40,6 +40,22 @@ function updateTheme() {
 let mediaQuery: MediaQueryList | null = null;
 let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null;
 
+// Double-shift shortcut for search
+let lastShiftTime = 0;
+function handleDoubleShift(e: KeyboardEvent) {
+  if (e.key === 'Shift') {
+    const now = Date.now();
+    if (now - lastShiftTime < 300) {
+      showSearch.value = true;
+      lastShiftTime = 0;
+    } else {
+      lastShiftTime = now;
+    }
+  } else {
+    lastShiftTime = 0;
+  }
+}
+
 onMounted(() => {
   const savedTheme = localStorage.getItem('theme') as ThemeMode | null;
   if (savedTheme && ['light', 'dark', 'auto'].includes(savedTheme)) {
@@ -61,6 +77,9 @@ onMounted(() => {
 
   // Close marker picker on outside click
   document.addEventListener('click', handleOutsideClick);
+  
+  // Double-shift to open search
+  document.addEventListener('keyup', handleDoubleShift);
 });
 
 onUnmounted(() => {
@@ -68,6 +87,7 @@ onUnmounted(() => {
     mediaQuery.removeEventListener('change', mediaQueryListener);
   }
   document.removeEventListener('click', handleOutsideClick);
+  document.removeEventListener('keyup', handleDoubleShift);
 });
 
 function exportData() {
