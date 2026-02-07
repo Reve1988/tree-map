@@ -230,6 +230,9 @@ function onNodeRightClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
   
+  // On touch devices, context menu is handled by long press timer with accurate touch coordinates
+  if (isTouchDevice.value) return;
+  
   store.nodeContextMenu = { nodeId: props.node.id, x: e.clientX, y: e.clientY };
 }
 
@@ -253,9 +256,14 @@ const isTouchDragging = ref(false);
 const lastDoubleTapTime = ref(0);
 const markerLongPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
-const LONG_PRESS_DURATION = 300; // ms
+const CONTEXT_MENU_DURATION = 500; // ms - long press for context menu
+const LONG_PRESS_DURATION = 800; // ms - longer press for drag
 const DOUBLE_TAP_DELAY = 300; // ms
 const DRAG_THRESHOLD = 10; // pixels
+
+// Separate timer for context menu on touch
+const contextMenuTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const touchContextPos = ref({ x: 0, y: 0 });
 
 function onNodeTouchStart(e: TouchEvent) {
   if (isEditing.value) return;
@@ -272,11 +280,33 @@ function onNodeTouchStart(e: TouchEvent) {
   
   touchStartTime.value = Date.now();
   touchStartPos.value = { x: touch.clientX, y: touch.clientY };
+  touchContextPos.value = { x: touch.clientX, y: touch.clientY };
   isLongPressing.value = false;
   isTouchDragging.value = false;
   
-  // Start long press timer
+  // Stage 1: Context menu after 500ms
+  contextMenuTimer.value = setTimeout(() => {
+    // Show context menu at touch position
+    store.nodeContextMenu = { nodeId: props.node.id, x: touchContextPos.value.x, y: touchContextPos.value.y };
+    isLongPressing.value = true;
+    
+    // Cancel drag timer since we showed context menu
+    if (longPressTimer.value) {
+      clearTimeout(longPressTimer.value);
+      longPressTimer.value = null;
+    }
+  }, CONTEXT_MENU_DURATION);
+  
+  // Stage 2: Drag after 800ms (only if context menu wasn't shown)
   longPressTimer.value = setTimeout(() => {
+    // Cancel context menu timer if drag starts first
+    if (contextMenuTimer.value) {
+      clearTimeout(contextMenuTimer.value);
+      contextMenuTimer.value = null;
+    }
+    // Close context menu if it was opened
+    store.nodeContextMenu = { nodeId: null, x: 0, y: 0 };
+    
     isLongPressing.value = true;
     isTouchDragging.value = true;
     store.draggingNodeId = props.node.id;
@@ -291,10 +321,14 @@ function onNodeTouchStart(e: TouchEvent) {
 function onNodeTouchMove(e: TouchEvent) {
   // Allow 2-finger gestures to propagate to container for pinch zoom
   if (e.touches.length >= 2) {
-    // Cancel long press if we switched to 2 fingers
+    // Cancel all timers if we switched to 2 fingers
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value);
       longPressTimer.value = null;
+    }
+    if (contextMenuTimer.value) {
+      clearTimeout(contextMenuTimer.value);
+      contextMenuTimer.value = null;
     }
     return; // Let container handle pinch zoom
   }
@@ -306,11 +340,15 @@ function onNodeTouchMove(e: TouchEvent) {
   const dy = touch.clientY - touchStartPos.value.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
   
-  // If moved beyond threshold before long press, cancel it
+  // If moved beyond threshold before long press, cancel all timers
   if (distance > DRAG_THRESHOLD && !isLongPressing.value) {
     if (longPressTimer.value) {
       clearTimeout(longPressTimer.value);
       longPressTimer.value = null;
+    }
+    if (contextMenuTimer.value) {
+      clearTimeout(contextMenuTimer.value);
+      contextMenuTimer.value = null;
     }
     return;
   }
@@ -350,10 +388,14 @@ function onNodeTouchMove(e: TouchEvent) {
 }
 
 function onNodeTouchEnd() {
-  // Clear timers
+  // Clear all timers
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value);
     longPressTimer.value = null;
+  }
+  if (contextMenuTimer.value) {
+    clearTimeout(contextMenuTimer.value);
+    contextMenuTimer.value = null;
   }
   
   const touchDuration = Date.now() - touchStartTime.value;
@@ -390,7 +432,7 @@ function onNodeTouchEnd() {
   }
   
   // Handle tap vs double tap (only if it was a quick tap)
-  if (touchDuration < LONG_PRESS_DURATION && !isLongPressing.value) {
+  if (touchDuration < CONTEXT_MENU_DURATION && !isLongPressing.value) {
     if (now - lastDoubleTapTime.value < DOUBLE_TAP_DELAY) {
       // Double tap -> edit
       lastDoubleTapTime.value = 0;
