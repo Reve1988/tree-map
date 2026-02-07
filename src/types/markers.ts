@@ -1,5 +1,5 @@
 // 마커 타입
-export type MarkerType = 'tag' | 'priority';
+export type MarkerType = 'tag' | 'priority' | 'shape';
 
 // 마커 인터페이스
 export interface Marker {
@@ -42,6 +42,22 @@ const PRIORITY_MARKERS = Array.from({ length: 9 }, (_, i) => {
     };
 });
 
+// Shape 마커 정의 (TAG와 동일한 6가지 색상, 모양 아이콘)
+const SHAPE_COLORS = [
+    { label: 'Red', color: '#ef4444' },
+    { label: 'Orange', color: '#f97316' },
+    { label: 'Yellow', color: '#eab308' },
+    { label: 'Green', color: '#22c55e' },
+    { label: 'Blue', color: '#3b82f6' },
+    { label: 'Purple', color: '#a855f7' },
+];
+
+const SHAPE_GROUPS = [
+    { id: 'stars', name: 'Stars', icon: '★' },
+    { id: 'flags', name: 'Flags', icon: '⚑' },
+    { id: 'people', name: 'People', icon: '♟' },
+];
+
 // 마커 그룹 정의
 export const MARKER_GROUPS: MarkerGroup[] = [
     {
@@ -67,6 +83,18 @@ export const MARKER_GROUPS: MarkerGroup[] = [
             icon,
         })),
     },
+    ...SHAPE_GROUPS.map(shape => ({
+        id: shape.id,
+        name: shape.name,
+        type: 'shape' as MarkerType,
+        markers: SHAPE_COLORS.map(({ label, color }) => ({
+            id: `${shape.id}-${label.toLowerCase()}`,
+            groupId: shape.id,
+            label: `${shape.name} ${label}`,
+            color,
+            icon: shape.icon,
+        })),
+    })),
 ];
 
 // 헬퍼 함수: 마커 ID로 마커 찾기

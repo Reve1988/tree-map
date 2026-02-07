@@ -916,11 +916,23 @@ button {
 
 .marker-context-menu {
   position: fixed;
-  background: var(--toolbar-bg);
+  background: var(--node-bg, white);
+  border: 1px solid var(--border-color, #ccc);
   border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10000;
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.marker-context-menu .menu-item {
+  background: transparent;
+  padding: 10px 16px;
+  border-radius: 0;
+}
+
+.marker-context-menu .menu-item:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .menu-item {
