@@ -6,6 +6,7 @@ import MindMapNodeComponent from './MindMapNode.vue';
 import ConnectionLine from './ConnectionLine.vue';
 import Toolbar from './Toolbar.vue';
 import ZoomControl from './ZoomControl.vue';
+import UserGuide from './UserGuide.vue';
 import type { MindMapNode } from '../types/mindmap';
 
 const store = useMindMapStore();
@@ -467,6 +468,9 @@ function onTouchEnd(e: TouchEvent) {
     
     <!-- Version Label -->
     <div class="version-label">v{{ appVersion }}</div>
+    
+    <!-- User Guide -->
+    <UserGuide />
   </div>
 </template>
 
