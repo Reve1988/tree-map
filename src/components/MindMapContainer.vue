@@ -239,6 +239,13 @@ const lastTouchPos = ref({ x: 0, y: 0 });
 const lastPinchDistance = ref(0);
 const isTouchPanning = ref(false);
 
+// Double-tap-drag selection state
+const lastTapTime = ref(0);
+const lastTapPos = ref({ x: 0, y: 0 });
+const isTouchSelecting = ref(false);
+const DOUBLE_TAP_DELAY = 300; // ms
+const DOUBLE_TAP_DISTANCE = 30; // px
+
 function getTouchDistance(touches: TouchList): number {
   if (touches.length < 2) return 0;
   const t0 = touches[0];
@@ -274,13 +281,43 @@ function onTouchStart(e: TouchEvent) {
   if (!t0) return;
   
   if (e.touches.length === 1) {
+    const now = Date.now();
+    const dx = t0.clientX - lastTapPos.value.x;
+    const dy = t0.clientY - lastTapPos.value.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // Check for double-tap
+    if (now - lastTapTime.value < DOUBLE_TAP_DELAY && dist < DOUBLE_TAP_DISTANCE) {
+      // Double-tap detected: enter selection mode
+      isTouchSelecting.value = true;
+      isSelecting.value = true;
+      isTouchPanning.value = false;
+      store.clearSelection();
+      
+      const rect = containerRef.value?.getBoundingClientRect();
+      if (rect) {
+        selectionStart.value = { x: t0.clientX - rect.left, y: t0.clientY - rect.top };
+        selectionBox.value = { x: selectionStart.value.x, y: selectionStart.value.y, width: 0, height: 0 };
+      }
+      
+      lastTapTime.value = 0; // Reset to prevent triple-tap
+      return;
+    }
+    
+    // Record tap for double-tap detection
+    lastTapTime.value = now;
+    lastTapPos.value = { x: t0.clientX, y: t0.clientY };
+    
     // Single finger: start panning
     isTouchPanning.value = true;
     lastTouchPos.value = { x: t0.clientX, y: t0.clientY };
     store.clearSelection();
   } else if (e.touches.length === 2) {
-    // Two fingers: start pinch zoom
+    // Two fingers: start pinch zoom (cancel selection if active)
     isTouchPanning.value = false;
+    isTouchSelecting.value = false;
+    isSelecting.value = false;
+    selectionBox.value = { x: 0, y: 0, width: 0, height: 0 };
     lastPinchDistance.value = getTouchDistance(e.touches);
     lastTouchPos.value = getTouchCenter(e.touches);
   }
@@ -292,7 +329,20 @@ function onTouchMove(e: TouchEvent) {
   const t0 = e.touches[0];
   if (!t0) return;
   
-  if (e.touches.length === 1 && isTouchPanning.value) {
+  if (e.touches.length === 1 && isTouchSelecting.value) {
+    // Double-tap drag selection
+    const rect = containerRef.value?.getBoundingClientRect();
+    if (!rect) return;
+    const currentX = t0.clientX - rect.left;
+    const currentY = t0.clientY - rect.top;
+    
+    const x = Math.min(selectionStart.value.x, currentX);
+    const y = Math.min(selectionStart.value.y, currentY);
+    const width = Math.abs(currentX - selectionStart.value.x);
+    const height = Math.abs(currentY - selectionStart.value.y);
+    
+    selectionBox.value = { x, y, width, height };
+  } else if (e.touches.length === 1 && isTouchPanning.value) {
     // Single finger panning
     const dx = t0.clientX - lastTouchPos.value.x;
     const dy = t0.clientY - lastTouchPos.value.y;
@@ -337,6 +387,13 @@ function onTouchMove(e: TouchEvent) {
 
 function onTouchEnd(e: TouchEvent) {
   if (e.touches.length === 0) {
+    if (isTouchSelecting.value) {
+      // Finish selection
+      isTouchSelecting.value = false;
+      isSelecting.value = false;
+      finishSelection(false);
+      selectionBox.value = { x: 0, y: 0, width: 0, height: 0 };
+    }
     isTouchPanning.value = false;
     lastPinchDistance.value = 0;
   } else if (e.touches.length === 1) {

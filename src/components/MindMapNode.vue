@@ -744,7 +744,7 @@ function onDrop(e: DragEvent) {
     </button>
 
     <!-- Mobile action buttons (touch devices only) -->
-    <template v-if="isTouchDevice && isSelected && !isEditing">
+    <template v-if="isTouchDevice && isSelected && !isEditing && store.selectedNodeIds.size === 1">
       <!-- Add child -->
       <button 
         class="mobile-action-btn mobile-action-right"
