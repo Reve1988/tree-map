@@ -518,7 +518,7 @@ function onTouchEnd(e: TouchEvent) {
   position: fixed;
   bottom: 8px;
   left: 12px;
-  font-size: 20px;
+  font-size: 1rem;
   color: var(--text-color);
   opacity: 0.3;
   pointer-events: none;
